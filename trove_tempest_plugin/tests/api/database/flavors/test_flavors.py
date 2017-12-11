@@ -17,7 +17,7 @@ from tempest.lib import decorators
 from tempest import test
 from testtools import testcase as testtools
 
-from trove.tests.tempest.tests.api.database import base
+from trove_tempest_plugin.tests.api.database import base
 
 
 class DatabaseFlavorsTest(base.BaseDatabaseTest):

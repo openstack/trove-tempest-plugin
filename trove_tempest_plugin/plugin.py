@@ -17,7 +17,7 @@ import os
 
 from tempest.test_discover import plugins
 
-from trove.tests.tempest import config as trove_config
+from trove_tempest_plugin import config as trove_config
 
 
 class TroveTempestPlugin(plugins.TempestPlugin):
@@ -25,8 +25,7 @@ class TroveTempestPlugin(plugins.TempestPlugin):
     def load_tests(self):
         base_path = os.path.split(os.path.dirname(
             os.path.abspath(__file__)))[0]
-        base_path = os.path.dirname(os.path.dirname(base_path))
-        test_dir = "trove/tests/tempest/tests"
+        test_dir = "trove_tempest_plugin/tests"
         full_test_dir = os.path.join(base_path, test_dir)
         return full_test_dir, base_path
 
