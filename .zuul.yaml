@@ -1,0 +1,9 @@
+- project:
+    name: openstack/trove-tempest-plugin
+    check:
+      jobs:
+        - tempest-neutron-src-python-troveclient
+    gate:
+      queue: trove
+      jobs:
+        - tempest-neutron-src-python-troveclient
