@@ -13,8 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from tempest.common import utils
 from tempest.lib import decorators
-from tempest import test
 from testtools import testcase as testtools
 
 from trove_tempest_plugin.tests.api.database import base
@@ -60,7 +60,7 @@ class DatabaseFlavorsTest(base.BaseDatabaseTest):
 
     @testtools.attr('smoke')
     @decorators.idempotent_id('afb2667f-4ec2-4925-bcb7-313fdcffb80d')
-    @test.services('compute')
+    @utils.services('compute')
     def test_compare_db_flavors_with_os(self):
         db_flavors = self.client.list_db_flavors()['flavors']
         os_flavors = (self.os_flavors_client.list_flavors(detail=True)
