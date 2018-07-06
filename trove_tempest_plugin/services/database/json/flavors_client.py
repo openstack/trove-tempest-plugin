@@ -13,25 +13,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_serialization import jsonutils as json
-from six.moves import urllib
-from tempest.lib.common import rest_client
+from trove_tempest_plugin.services.database.json import base_client
 
 
-class DatabaseFlavorsClient(rest_client.RestClient):
+class FlavorsClient(base_client.BaseClient):
 
-    def list_db_flavors(self, params=None):
-        url = 'flavors'
-        if params:
-            url += '?%s' % urllib.parse.urlencode(params)
+    uri = '/flavors'
 
-        resp, body = self.get(url)
-        self.expected_success(200, resp.status)
-        body = json.loads(body)
-        return rest_client.ResponseBody(resp, body)
+    def list_flavors(self):
+        return self.list_resources(self.uri)
 
-    def show_db_flavor(self, db_flavor_id):
-        resp, body = self.get("flavors/%s" % db_flavor_id)
-        self.expected_success(200, resp.status)
-        body = json.loads(body)
-        return rest_client.ResponseBody(resp, body)
+    def show_flavor(self, flavor_id):
+        uri = '%s/%s' % (self.uri, flavor_id)
+        return self.show_resource(uri)

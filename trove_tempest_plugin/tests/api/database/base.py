@@ -48,18 +48,18 @@ class BaseDatabaseTest(tempest.test.BaseTestCase):
             'build_timeout': CONF.compute.build_timeout
         }
         default_params_with_timeout_values.update(default_params)
-        cls.database_flavors_client = flavors_client.DatabaseFlavorsClient(
+        cls.database_flavors_client = flavors_client.FlavorsClient(
             cls.os_primary.auth_provider,
             CONF.database.catalog_type,
             CONF.identity.region,
             **default_params_with_timeout_values)
         cls.os_flavors_client = cls.os_primary.flavors_client
-        cls.database_limits_client = limits_client.DatabaseLimitsClient(
+        cls.database_limits_client = limits_client.LimitsClient(
             cls.os_primary.auth_provider,
             CONF.database.catalog_type,
             CONF.identity.region,
             **default_params_with_timeout_values)
-        cls.database_versions_client = versions_client.DatabaseVersionsClient(
+        cls.database_versions_client = versions_client.VersionsClient(
             cls.os_primary.auth_provider,
             CONF.database.catalog_type,
             CONF.identity.region,

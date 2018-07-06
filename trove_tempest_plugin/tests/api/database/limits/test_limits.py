@@ -31,7 +31,7 @@ class DatabaseLimitsTest(base.BaseDatabaseTest):
     def test_absolute_limits(self):
         # Test to verify if all absolute limit parameters are
         # present when verb is ABSOLUTE
-        limits = self.client.list_db_limits()['limits']
+        limits = self.client.list_limits()['limits']
         expected_abs_limits = ['max_backups', 'max_volumes',
                                'max_instances', 'verb']
         absolute_limit = [l for l in limits

@@ -29,7 +29,7 @@ class DatabaseVersionsTest(base.BaseDatabaseTest):
     @testtools.attr('smoke')
     @decorators.idempotent_id('6952cd77-90cd-4dca-bb60-8e2c797940cf')
     def test_list_db_versions(self):
-        versions = self.client.list_db_versions()['versions']
+        versions = self.client.list_versions()['versions']
         self.assertTrue(len(versions) > 0, "No database versions found")
         # List of all versions should contain the current version, and there
         # should only be one 'current' version
