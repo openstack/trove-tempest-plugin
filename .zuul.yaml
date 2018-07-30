@@ -2,7 +2,26 @@
     check:
       jobs:
         - python-troveclient-tempest-neutron-src
+        - trove-tempest-plugin
     gate:
       queue: trove
       jobs:
         - python-troveclient-tempest-neutron-src
+        - trove-tempest-plugin
+- job:
+    name: trove-tempest-plugin
+    parent: devstack-tempest
+    required-projects:
+      - openstack/neutron
+      - openstack/trove
+      - openstack/trove-tempest-plugin
+    vars:
+      tox_envlist: 'all'
+      devstack_localrc:
+        TEMPEST_PLUGINS: '/opt/stack/trove-tempest-plugin'
+      devstack_plugins:
+        trove: git://git.openstack.org/openstack/trove
+      devstack_services:
+        tempest: true
+        tls-proxy: false
+      tempest_test_regex: ^trove_tempest_plugin\.tests
