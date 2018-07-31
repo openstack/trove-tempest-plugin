@@ -16,7 +16,7 @@
 from tempest.lib import decorators
 from testtools import testcase as testtools
 
-from trove_tempest_plugin.tests.api.database import base
+from trove_tempest_plugin.tests.api import base
 
 
 class DatabaseVersionsTest(base.BaseDatabaseTest):

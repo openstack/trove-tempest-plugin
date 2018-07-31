@@ -13,18 +13,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from trove_tempest_plugin.services.database.json import base_client
+from trove_tempest_plugin.services.database import base_client
 
 
-class VersionsClient(base_client.BaseClient):
+class FlavorsClient(base_client.BaseClient):
 
-    uri = ''
+    uri = '/flavors'
 
-    def __init__(self, auth_provider, service, region, **kwargs):
-        super(VersionsClient, self).__init__(
-            auth_provider, service, region, **kwargs)
-        self.skip_path()
-
-    def list_versions(self):
-        """List all versions."""
+    def list_flavors(self):
         return self.list_resources(self.uri)
+
+    def show_flavor(self, flavor_id):
+        uri = '%s/%s' % (self.uri, flavor_id)
+        return self.show_resource(uri)
