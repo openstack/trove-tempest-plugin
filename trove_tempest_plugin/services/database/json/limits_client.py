@@ -13,19 +13,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_serialization import jsonutils as json
-from six.moves.urllib import parse as urllib
-from tempest.lib.common import rest_client
+from trove_tempest_plugin.services.database.json import base_client
 
 
-class DatabaseLimitsClient(rest_client.RestClient):
+class LimitsClient(base_client.BaseClient):
 
-    def list_db_limits(self, params=None):
+    uri = '/limits'
+
+    def list_limits(self):
         """List all limits."""
-        url = 'limits'
-        if params:
-            url += '?%s' % urllib.urlencode(params)
-        resp, body = self.get(url)
-        self.expected_success(200, resp.status)
-        body = json.loads(body)
-        return rest_client.ResponseBody(resp, body)
+        return self.list_resources(self.uri)

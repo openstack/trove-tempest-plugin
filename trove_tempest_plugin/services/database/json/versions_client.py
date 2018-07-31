@@ -13,25 +13,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_serialization import jsonutils as json
-from six.moves.urllib import parse as urllib
-from tempest.lib.common import rest_client
+from trove_tempest_plugin.services.database.json import base_client
 
 
-class DatabaseVersionsClient(rest_client.RestClient):
+class VersionsClient(base_client.BaseClient):
+
+    uri = ''
 
     def __init__(self, auth_provider, service, region, **kwargs):
-        super(DatabaseVersionsClient, self).__init__(
+        super(VersionsClient, self).__init__(
             auth_provider, service, region, **kwargs)
         self.skip_path()
 
-    def list_db_versions(self, params=None):
+    def list_versions(self):
         """List all versions."""
-        url = ''
-        if params:
-            url += '?%s' % urllib.urlencode(params)
-
-        resp, body = self.get(url)
-        self.expected_success(200, resp.status)
-        body = json.loads(body)
-        return rest_client.ResponseBody(resp, body)
+        return self.list_resources(self.uri)

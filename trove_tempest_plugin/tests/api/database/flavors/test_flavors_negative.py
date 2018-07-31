@@ -33,4 +33,4 @@ class DatabaseFlavorsNegativeTest(base.BaseDatabaseTest):
     def test_get_non_existent_db_flavor(self):
         # flavor details are not returned for non-existent flavors
         self.assertRaises(lib_exc.NotFound,
-                          self.client.show_db_flavor, -1)
+                          self.client.show_flavor, -1)
