@@ -16,10 +16,7 @@
 from tempest import config
 import tempest.test
 
-from trove_tempest_plugin.services.database import FlavorsClient
-from trove_tempest_plugin.services.database import LimitsClient
-from trove_tempest_plugin.services.database import VersionsClient
-
+from trove_tempest_plugin import clients
 
 CONF = config.CONF
 
@@ -28,6 +25,7 @@ class BaseDatabaseTest(tempest.test.BaseTestCase):
     """Base test case class for all Database API tests."""
 
     credentials = ['primary']
+    client_manager = clients.Manager
 
     @classmethod
     def skip_checks(cls):
@@ -38,32 +36,42 @@ class BaseDatabaseTest(tempest.test.BaseTestCase):
 
     @classmethod
     def setup_clients(cls):
-        super(BaseDatabaseTest, cls).setup_clients()
-        default_params = config.service_client_config()
+        """Setups service clients.
 
-        # NOTE: Tempest uses timeout values of compute API if project specific
-        # timeout values don't exist.
-        default_params_with_timeout_values = {
-            'build_interval': CONF.compute.build_interval,
-            'build_timeout': CONF.compute.build_timeout
-        }
-        default_params_with_timeout_values.update(default_params)
-        cls.database_flavors_client = FlavorsClient(
-            cls.os_primary.auth_provider,
-            CONF.database.catalog_type,
-            CONF.identity.region,
-            **default_params_with_timeout_values)
-        cls.os_flavors_client = cls.os_primary.flavors_client
-        cls.database_limits_client = LimitsClient(
-            cls.os_primary.auth_provider,
-            CONF.database.catalog_type,
-            CONF.identity.region,
-            **default_params_with_timeout_values)
-        cls.database_versions_client = VersionsClient(
-            cls.os_primary.auth_provider,
-            CONF.database.catalog_type,
-            CONF.identity.region,
-            **default_params_with_timeout_values)
+        Tempest provides a convenient fabrication interface, which can be used
+        to produce instances of clients configured with the required parameters
+        and a selected set of credentials. Thanks to this interface, the
+        complexity of client initialization is hidden from the developer. All
+        parameters such as "catalog_type", "auth_provider", "build_timeout"
+        etc. are read from Tempest configuration and then automatically
+        installed in the clients.
+
+        The fabrication interface is enabled through the client manager, which
+        is hooked to the class by the "client_manager" property.
+
+        To initialize a new client, one need to specify the set of credentials
+        (primary, admin) to be used and the category of client (eg compute,
+        image, database, etc.). Together, they constitute a proxy for the
+        fabricators of specific client classes from a given category.
+
+        For example, initializing a new flavors client from the database
+        category with primary privileges boils down to the following call:
+
+        flavors_client = cls.os_primary.database.FlavorsClient()
+
+        In order to initialize a new networks client from the compute category
+        with administrator privilages:
+
+        networks_client = cls.os_admin.compute.NetworksClient()
+
+        Note, that selected set of credentials must be declared in the
+        "credentials" property of this class.
+        """
+        super(BaseDatabaseTest, cls).setup_clients()
+        cls.database_flavors_client = cls.os_primary.database.FlavorsClient()
+        cls.os_flavors_client = cls.os_primary.compute.FlavorsClient()
+        cls.database_limits_client = cls.os_primary.database.LimitsClient()
+        cls.database_versions_client = cls.os_primary.database.VersionsClient()
 
     @classmethod
     def resource_setup(cls):

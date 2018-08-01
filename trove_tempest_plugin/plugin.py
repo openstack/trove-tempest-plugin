@@ -15,6 +15,7 @@
 
 import os
 
+from tempest import config
 from tempest.test_discover import plugins
 
 from trove_tempest_plugin import config as trove_config
@@ -38,3 +39,18 @@ class TroveTempestPlugin(plugins.TempestPlugin):
     def get_opt_lists(self):
         return [('database', trove_config.DatabaseGroup),
                 ('service_available', [trove_config.service_option])]
+
+    def get_service_clients(self):
+        service_config = config.service_client_config('database')
+        service_params = {
+            'name': 'database',
+            'service_version': 'database',
+            'module_path': 'trove_tempest_plugin.services.database',
+            'client_names': [
+                'FlavorsClient',
+                'LimitsClient',
+                'VersionsClient'
+            ]
+        }
+        service_params.update(service_config)
+        return [service_params]
