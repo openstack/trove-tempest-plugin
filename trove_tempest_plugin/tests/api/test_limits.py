@@ -16,10 +16,10 @@
 from tempest.lib import decorators
 from testtools import testcase as testtools
 
-from trove_tempest_plugin.tests.api import base
+from trove_tempest_plugin.tests import base_test
 
 
-class DatabaseLimitsTest(base.BaseDatabaseTest):
+class DatabaseLimitsTest(base_test.BaseDatabaseTest):
 
     @classmethod
     def resource_setup(cls):

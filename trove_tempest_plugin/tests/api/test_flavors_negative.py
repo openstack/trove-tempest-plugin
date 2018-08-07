@@ -18,10 +18,10 @@ from tempest.lib import decorators
 from tempest.lib import exceptions as lib_exc
 from testtools import testcase as testtools
 
-from trove_tempest_plugin.tests.api import base
+from trove_tempest_plugin.tests import base_test
 
 
-class DatabaseFlavorsNegativeTest(base.BaseDatabaseTest):
+class DatabaseFlavorsNegativeTest(base_test.BaseDatabaseTest):
 
     @classmethod
     def setup_clients(cls):
