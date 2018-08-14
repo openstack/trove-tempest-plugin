@@ -13,7 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from trove_tempest_plugin.services.database.json import base_client
+from trove_tempest_plugin.services.database import base_client
 
 
 class LimitsClient(base_client.BaseClient):
