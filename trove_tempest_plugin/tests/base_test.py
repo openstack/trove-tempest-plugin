@@ -14,15 +14,20 @@
 #    under the License.
 
 from tempest import config
-import tempest.test
+from tempest import test
 
 from trove_tempest_plugin import clients
 
 CONF = config.CONF
 
 
-class BaseDatabaseTest(tempest.test.BaseTestCase):
-    """Base test case class for all Database API tests."""
+class BaseDatabaseTest(test.BaseTestCase):
+    """Base test case class.
+
+    Includes parts common to API and scenario tests:
+        * test case callbacks,
+        * service clients initialization.
+    """
 
     credentials = ['primary']
     client_manager = clients.Manager
@@ -76,7 +81,6 @@ class BaseDatabaseTest(tempest.test.BaseTestCase):
     @classmethod
     def resource_setup(cls):
         super(BaseDatabaseTest, cls).resource_setup()
-
         cls.catalog_type = CONF.database.catalog_type
         cls.db_flavor_ref = CONF.database.db_flavor_ref
         cls.db_current_version = CONF.database.db_current_version
