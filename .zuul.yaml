@@ -1,4 +1,7 @@
 - project:
+    templates:
+      - check-requirements
+      - tempest-plugin-jobs
     check:
       jobs:
         - python-troveclient-tempest-neutron-src
@@ -16,9 +19,9 @@
       - openstack/trove
       - openstack/trove-tempest-plugin
     vars:
-      tox_envlist: 'all'
+      tox_envlist: all
       devstack_localrc:
-        TEMPEST_PLUGINS: '/opt/stack/trove-tempest-plugin'
+        TEMPEST_PLUGINS: /opt/stack/trove-tempest-plugin
       devstack_plugins:
         trove: git://git.openstack.org/openstack/trove
       devstack_services:
