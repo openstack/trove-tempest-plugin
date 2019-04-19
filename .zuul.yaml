@@ -24,7 +24,7 @@
       devstack_localrc:
         TEMPEST_PLUGINS: /opt/stack/trove-tempest-plugin
       devstack_plugins:
-        trove: https://git.openstack.org/openstack/trove
+        trove: https://opendev.org/openstack/trove
       devstack_services:
         tempest: true
         tls-proxy: false
