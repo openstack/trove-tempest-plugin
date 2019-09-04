@@ -14,27 +14,50 @@
 
 from oslo_config import cfg
 
-service_option = cfg.BoolOpt('trove',
-                             default=True,
-                             help="Whether or not Trove is expected to be "
-                                  "available")
+service_option = cfg.BoolOpt(
+    'trove',
+    default=True,
+    help="Whether or not Trove is expected to be available"
+)
 
-database_group = cfg.OptGroup(name='database',
-                              title='Database Service Options')
+database_group = cfg.OptGroup(
+    name='database',
+    title='Database Service Options'
+)
 
 DatabaseGroup = [
-    cfg.StrOpt('catalog_type',
-               default='database',
-               help="Catalog type of the Database service."),
-    cfg.StrOpt('endpoint_type',
-               default='publicURL',
-               choices=['public', 'admin', 'internal',
-                        'publicURL', 'adminURL', 'internalURL'],
-               help="The endpoint type to use for the Database service."),
-    cfg.StrOpt('db_flavor_ref',
-               default="1",
-               help="Valid primary flavor to use in Database tests."),
-    cfg.StrOpt('db_current_version',
-               default="v1.0",
-               help="Current database version to use in Database tests."),
+    cfg.StrOpt(
+        'catalog_type',
+        default='database',
+        help="Catalog type of the Database service."
+    ),
+    cfg.StrOpt(
+        'endpoint_type',
+        default='publicURL',
+        choices=['public', 'admin', 'internal', 'publicURL', 'adminURL',
+                 'internalURL'],
+        help="The endpoint type to use for the Database service."
+    ),
+    cfg.IntOpt('database_build_timeout',
+               default=1800,
+               help='Timeout in seconds to wait for a database instance to '
+                    'build.'),
+    cfg.StrOpt(
+        'flavor_id',
+        default="d2",
+        help="The Nova flavor ID used for creating database instance."
+    ),
+    cfg.StrOpt(
+        'subnet_cidr',
+        default='10.1.1.0/24',
+        help=('The Neutron CIDR format subnet to use for database network '
+              'creation.')
+    ),
+    cfg.StrOpt(
+        'volume_type',
+        default="lvmdriver-1",
+        help="The Cinder volume type used for creating database instance."
+    ),
+    cfg.StrOpt('datastore_type', default="mysql"),
+    cfg.StrOpt('datastore_version', default="5.7"),
 ]

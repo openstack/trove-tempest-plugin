@@ -45,12 +45,8 @@ class TroveTempestPlugin(plugins.TempestPlugin):
         service_params = {
             'name': 'database',
             'service_version': 'database',
-            'module_path': 'trove_tempest_plugin.services.database',
-            'client_names': [
-                'FlavorsClient',
-                'LimitsClient',
-                'VersionsClient'
-            ]
+            'module_path': 'trove_tempest_plugin.services.client',
+            'client_names': ['TroveClient']
         }
         service_params.update(service_config)
         return [service_params]
