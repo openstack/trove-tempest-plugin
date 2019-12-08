@@ -14,7 +14,7 @@
 import time
 
 from oslo_log import log as logging
-
+import sqlalchemy
 from tempest.lib import exceptions
 
 LOG = logging.getLogger(__name__)
@@ -49,3 +49,41 @@ def wait_for_removal(delete_func, show_func, *args, **kwargs):
                        (show_func.__name__, check_timeout))
             raise exceptions.TimeoutException(message)
         time.sleep(3)
+
+
+class LocalSqlClient(object):
+    """A sqlalchemy wrapper to manage transactions."""
+
+    def __init__(self, engine):
+        self.engine = engine
+
+    def __enter__(self):
+        self.conn = self.engine.connect()
+        self.trans = self.conn.begin()
+        return self.conn
+
+    def __exit__(self, type, value, traceback):
+        if self.trans:
+            if type is not None:
+                self.trans.rollback()
+            else:
+                self.trans.commit()
+        self.conn.close()
+
+    def execute(self, t, **kwargs):
+        try:
+            return self.conn.execute(t, kwargs)
+        except Exception as e:
+            self.trans.rollback()
+            self.trans = None
+            raise exceptions.TempestException(
+                'Failed to execute database command %s, error: %s' %
+                (t, str(e))
+            )
+
+    @staticmethod
+    def init_engine(host, user, password):
+        return sqlalchemy.create_engine(
+            "mysql+pymysql://%s:%s@%s:3306" % (user, password, host),
+            pool_recycle=1800
+        )

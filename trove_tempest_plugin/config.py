@@ -38,6 +38,10 @@ DatabaseGroup = [
                  'internalURL'],
         help="The endpoint type to use for the Database service."
     ),
+    cfg.ListOpt(
+        'enabled_datastores',
+        default=['mysql']
+    ),
     cfg.IntOpt('database_build_timeout',
                default=1800,
                help='Timeout in seconds to wait for a database instance to '
@@ -46,6 +50,12 @@ DatabaseGroup = [
         'flavor_id',
         default="d2",
         help="The Nova flavor ID used for creating database instance."
+    ),
+    cfg.StrOpt(
+        'shared_network',
+        default="private",
+        help=('Pre-defined network name or ID used for creating database '
+              'instance.')
     ),
     cfg.StrOpt(
         'subnet_cidr',
@@ -58,6 +68,4 @@ DatabaseGroup = [
         default="lvmdriver-1",
         help="The Cinder volume type used for creating database instance."
     ),
-    cfg.StrOpt('datastore_type', default="mysql"),
-    cfg.StrOpt('datastore_version', default="5.7"),
 ]

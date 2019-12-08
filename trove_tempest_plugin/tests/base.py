@@ -14,6 +14,7 @@
 #    under the License.
 from oslo_log import log as logging
 from oslo_service import loopingcall
+from oslo_utils import uuidutils
 import tenacity
 
 from tempest import config
@@ -30,6 +31,7 @@ LOG = logging.getLogger(__name__)
 
 class BaseTroveTest(test.BaseTestCase):
     credentials = ('admin', 'primary')
+    datastore = None
 
     @classmethod
     def get_resource_name(cls, resource_type):
@@ -42,6 +44,11 @@ class BaseTroveTest(test.BaseTestCase):
 
         if not CONF.service_available.trove:
             raise cls.skipException("Database service is not available.")
+
+        if cls.datastore not in CONF.database.enabled_datastores:
+            raise cls.skipException(
+                "Datastore %s is not enabled." % cls.datastore
+            )
 
     @classmethod
     def setup_clients(cls):
@@ -103,6 +110,22 @@ class BaseTroveTest(test.BaseTestCase):
         subnets_client = cls.os_primary.subnets_client
         routers_client = cls.os_primary.routers_client
 
+        if CONF.database.shared_network:
+            private_network = CONF.database.shared_network
+            if not uuidutils.is_uuid_like(private_network):
+                networks = networks_client.list_networks()['networks']
+                for net in networks:
+                    if net['name'] == private_network:
+                        private_network = net['id']
+                        break
+                else:
+                    raise exceptions.NotFound(
+                        'Shared network %s not found' % private_network
+                    )
+
+            cls.private_network = private_network
+            return
+
         network_kwargs = {"name": cls.get_resource_name("network")}
         result = networks_client.create_network(**network_kwargs)
         LOG.info('Private network created: %s', result['network'])
@@ -163,6 +186,9 @@ class BaseTroveTest(test.BaseTestCase):
         # network ID.
         cls._create_network()
 
+        cls.instance_id = cls.create_instance()
+        cls.wait_for_instance_status(cls.instance_id)
+
     @classmethod
     def create_instance(cls, database="test_db", username="test_user",
                         password="password"):
@@ -175,6 +201,17 @@ class BaseTroveTest(test.BaseTestCase):
         all test methods within a TestCase are assumed to be executed serially.
         """
         name = cls.get_resource_name("instance")
+
+        # Get datastore version
+        res = cls.client.list_resources("datastores")
+        for d in res['datastores']:
+            if d['name'] == cls.datastore:
+                if d.get('default_version'):
+                    datastore_version = d['default_version']
+                else:
+                    datastore_version = d['versions'][0]['name']
+                break
+
         body = {
             "instance": {
                 "name": name,
@@ -195,8 +232,8 @@ class BaseTroveTest(test.BaseTestCase):
                     }
                 ],
                 "datastore": {
-                    "type": CONF.database.datastore_type,
-                    "version": CONF.database.datastore_version
+                    "type": cls.datastore,
+                    "version": datastore_version
                 },
                 "nics": [
                     {
@@ -220,10 +257,12 @@ class BaseTroveTest(test.BaseTestCase):
                 res = cls.client.get_resource("instances", id)
             except exceptions.NotFound:
                 if need_delete or status == "DELETED":
+                    LOG.info('Instance %s is deleted', id)
                     raise loopingcall.LoopingCallDone()
                 return
 
             if res["instance"]["status"] == status:
+                LOG.info('Instance %s becomes %s', id, status)
                 raise loopingcall.LoopingCallDone()
             elif status != "ERROR" and res["instance"]["status"] == "ERROR":
                 # If instance status goes to ERROR but is not expected, stop
