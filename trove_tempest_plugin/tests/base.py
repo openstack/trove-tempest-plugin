@@ -246,25 +246,32 @@ class BaseTroveTest(test.BaseTestCase):
         res = cls.client.create_resource("instances", body)
         instance_id = res["instance"]["id"]
         cls.addClassResourceCleanup(cls.wait_for_instance_status, instance_id,
-                                    need_delete=True, status="DELETED")
+                                    need_delete=True,
+                                    expected_status="DELETED")
 
         return instance_id
 
     @classmethod
-    def wait_for_instance_status(cls, id, status="ACTIVE", need_delete=False):
+    def wait_for_instance_status(cls, id,
+                                 expected_status=["HEALTHY", "ACTIVE"],
+                                 need_delete=False):
+        if type(expected_status) != list:
+            expected_status = [expected_status]
+
         def _wait():
             try:
                 res = cls.client.get_resource("instances", id)
+                cur_status = res["instance"]["status"]
             except exceptions.NotFound:
-                if need_delete or status == "DELETED":
+                if need_delete or "DELETED" in expected_status:
                     LOG.info('Instance %s is deleted', id)
                     raise loopingcall.LoopingCallDone()
                 return
 
-            if res["instance"]["status"] == status:
-                LOG.info('Instance %s becomes %s', id, status)
+            if cur_status in expected_status:
+                LOG.info('Instance %s becomes %s', id, cur_status)
                 raise loopingcall.LoopingCallDone()
-            elif status != "ERROR" and res["instance"]["status"] == "ERROR":
+            elif "ERROR" not in expected_status and cur_status == "ERROR":
                 # If instance status goes to ERROR but is not expected, stop
                 # waiting
                 message = "Instance status is ERROR."
@@ -283,7 +290,7 @@ class BaseTroveTest(test.BaseTestCase):
                         timeout=CONF.database.database_build_timeout).wait()
         except loopingcall.LoopingCallTimeOut:
             message = ("Instance %s is not in the expected status: %s" %
-                       (id, status))
+                       (id, expected_status))
             caller = test_utils.find_test_caller()
             if caller:
                 message = '({caller}) {message}'.format(caller=caller,
