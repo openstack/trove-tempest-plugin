@@ -17,15 +17,13 @@ from oslo_log import log as logging
 from oslo_utils import netutils
 from tempest.lib import decorators
 
-from trove_tempest_plugin.tests import base
+from trove_tempest_plugin.tests import base as trove_base
 from trove_tempest_plugin.tests import utils
 
 LOG = logging.getLogger(__name__)
 
 
-class TestMySQLInstanceBasic(base.BaseTroveTest):
-    datastore = 'mysql'
-
+class TestInstanceBasicMySQLBase(trove_base.BaseTroveTest):
     def _access_db(self, ip, username='test_user', password='password'):
         db_engine = utils.LocalSqlClient.init_engine(ip, username, password)
         db_client = utils.LocalSqlClient(db_engine)
@@ -41,7 +39,7 @@ class TestMySQLInstanceBasic(base.BaseTroveTest):
         res = self.client.get_resource("instances", self.instance_id)
         ips = res["instance"].get('ip', [])
 
-        # TODO(lxkong): IPv6 needs to be supported.
+        # TODO(lxkong): IPv6 needs to be tested.
         v4_ip = None
         for ip in ips:
             if netutils.is_valid_ipv4(ip):

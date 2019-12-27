@@ -70,3 +70,10 @@ class TroveClient(rest_client.RestClient):
         self.expected_success(expected_status_code, resp.status)
 
         return rest_client.ResponseBody(resp, json.loads(body))
+
+    def patch_resource(self, obj, id, req_body, expected_status_code=202):
+        url = '/{obj}/{id}'.format(obj=obj, id=id)
+        headers = {"Content-Type": "application/json"}
+
+        resp, _ = self.patch(url, json.dumps(req_body), headers=headers)
+        self.expected_success(expected_status_code, resp.status)
