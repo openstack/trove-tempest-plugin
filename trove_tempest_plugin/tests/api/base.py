@@ -44,5 +44,4 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
         self.client.patch_resource('instances', self.instance_id, body)
 
         time.sleep(3)
-        self.wait_for_instance_status(self.instance_id,
-                                      expected_status="ACTIVE")
+        self.wait_for_instance_status(self.instance_id)

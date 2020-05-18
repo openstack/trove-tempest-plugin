@@ -239,7 +239,10 @@ class BaseTroveTest(test.BaseTestCase):
                     {
                         "net-id": cls.private_network
                     }
-                ]
+                ],
+                "access": {
+                    "is_public": True
+                }
             }
         }
 
