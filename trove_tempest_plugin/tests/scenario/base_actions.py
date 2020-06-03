@@ -1,4 +1,4 @@
-# Copyright 2019 Catalyst Cloud Ltd.
+# Copyright 2020 Catalyst Cloud
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -17,8 +17,21 @@ from oslo_log import log as logging
 from tempest.lib import decorators
 
 from trove_tempest_plugin.tests import base as trove_base
+from trove_tempest_plugin.tests import utils
 
 LOG = logging.getLogger(__name__)
+
+
+def get_db_version(ip, username='test_user', password='password'):
+    db_engine = utils.LocalSqlClient.init_engine(ip, username, password)
+    db_client = utils.LocalSqlClient(db_engine)
+
+    LOG.info('Trying to access the database %s', ip)
+
+    with db_client:
+        cmd = "SELECT @@GLOBAL.innodb_version;"
+        ret = db_client.execute(cmd)
+        return ret.first()[0]
 
 
 class TestInstanceActionsBase(trove_base.BaseTroveTest):
@@ -45,3 +58,9 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
 
         time.sleep(3)
         self.wait_for_instance_status(self.instance_id)
+
+        ip = self.get_instance_ip(res["instance"])
+        time.sleep(3)
+        actual = get_db_version(ip)
+
+        self.assertEqual(actual, new_version)

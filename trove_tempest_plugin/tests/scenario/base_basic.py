@@ -14,7 +14,6 @@
 import time
 
 from oslo_log import log as logging
-from oslo_utils import netutils
 from tempest.lib import decorators
 
 from trove_tempest_plugin.tests import base as trove_base
@@ -36,25 +35,6 @@ class TestInstanceBasicMySQLBase(trove_base.BaseTroveTest):
 
     @decorators.idempotent_id("40cf38ce-cfbf-11e9-8760-1458d058cfb2")
     def test_database_access(self):
-        instance = self.client.get_resource(
-            "instances", self.instance_id)['instance']
-
-        # TODO(lxkong): IPv6 needs to be tested.
-        v4_ip = None
-
-        if 'addresses' in instance:
-            for addr_info in instance['addresses']:
-                if addr_info['type'] == 'private':
-                    v4_ip = addr_info['address']
-                if addr_info['type'] == 'public':
-                    v4_ip = addr_info['address']
-                    break
-        else:
-            ips = instance.get('ip', [])
-            for ip in ips:
-                if netutils.is_valid_ipv4(ip):
-                    v4_ip = ip
-
-        self.assertIsNotNone(v4_ip)
+        v4_ip = self.get_instance_ip()
         time.sleep(5)
         self._access_db(v4_ip)

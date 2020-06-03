@@ -14,6 +14,7 @@
 #    under the License.
 from oslo_log import log as logging
 from oslo_service import loopingcall
+from oslo_utils import netutils
 from oslo_utils import uuidutils
 import tenacity
 
@@ -258,9 +259,6 @@ class BaseTroveTest(test.BaseTestCase):
     def wait_for_instance_status(cls, id,
                                  expected_status=["HEALTHY", "ACTIVE"],
                                  need_delete=False):
-        if type(expected_status) != list:
-            expected_status = [expected_status]
-
         def _wait():
             try:
                 res = cls.client.get_resource("instances", id)
@@ -284,8 +282,11 @@ class BaseTroveTest(test.BaseTestCase):
                                                             message=message)
                 raise exceptions.UnexpectedResponseCode(message)
 
+        if type(expected_status) != list:
+            expected_status = [expected_status]
+
         if need_delete:
-            cls.client.delete_resource("instances", id, ignore_notfound=True)
+            cls.admin_client.force_delete_instance(id)
 
         timer = loopingcall.FixedIntervalWithTimeoutLoopingCall(_wait)
         try:
@@ -299,3 +300,27 @@ class BaseTroveTest(test.BaseTestCase):
                 message = '({caller}) {message}'.format(caller=caller,
                                                         message=message)
             raise exceptions.TimeoutException(message)
+
+    def get_instance_ip(self, instance=None):
+        if not instance:
+            instance = self.client.get_resource(
+                "instances", self.instance_id)['instance']
+
+        # TODO(lxkong): IPv6 needs to be tested.
+        v4_ip = None
+
+        if 'addresses' in instance:
+            for addr_info in instance['addresses']:
+                if addr_info['type'] == 'private':
+                    v4_ip = addr_info['address']
+                if addr_info['type'] == 'public':
+                    v4_ip = addr_info['address']
+                    break
+        else:
+            ips = instance.get('ip', [])
+            for ip in ips:
+                if netutils.is_valid_ipv4(ip):
+                    v4_ip = ip
+
+        self.assertIsNotNone(v4_ip)
+        return v4_ip
