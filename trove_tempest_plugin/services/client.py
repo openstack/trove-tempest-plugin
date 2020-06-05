@@ -60,6 +60,16 @@ class TroveClient(rest_client.RestClient):
             else:
                 raise
 
+    def force_delete_instance(self, id):
+        headers = {"Content-Type": "application/json"}
+        body = {"reset_status": {}}
+        resp, _ = self.post(f'/instances/{id}/action', json.dumps(body),
+                            headers=headers)
+        self.expected_success(202, resp.status)
+
+        resp, _ = self.delete(f'/instances/{id}')
+        self.expected_success(202, resp.status)
+
     def create_resource(self, obj, req_body, extra_headers={},
                         expected_status_code=200):
         headers = {"Content-Type": "application/json"}
