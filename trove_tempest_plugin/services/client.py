@@ -53,10 +53,11 @@ class TroveClient(rest_client.RestClient):
     def delete_resource(self, obj, id, ignore_notfound=False):
         try:
             resp, _ = self.delete('/{obj}/{id}'.format(obj=obj, id=id))
+            self.expected_success(202, resp.status)
             return resp
         except exceptions.NotFound:
             if ignore_notfound:
-                pass
+                return None
             else:
                 raise
 
@@ -67,8 +68,7 @@ class TroveClient(rest_client.RestClient):
                             headers=headers)
         self.expected_success(202, resp.status)
 
-        resp, _ = self.delete(f'/instances/{id}')
-        self.expected_success(202, resp.status)
+        self.delete_resource('instances', id, ignore_notfound=True)
 
     def create_resource(self, obj, req_body, extra_headers={},
                         expected_status_code=200):

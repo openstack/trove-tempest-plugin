@@ -24,6 +24,7 @@ from tempest.lib.common.utils import test_utils
 from tempest.lib import exceptions
 from tempest import test
 
+from trove_tempest_plugin.tests import constants
 from trove_tempest_plugin.tests import utils
 
 CONF = config.CONF
@@ -33,6 +34,9 @@ LOG = logging.getLogger(__name__)
 class BaseTroveTest(test.BaseTestCase):
     credentials = ('admin', 'primary')
     datastore = None
+    instance = None
+    instance_id = None
+    instance_ip = None
 
     @classmethod
     def get_resource_name(cls, resource_type):
@@ -187,12 +191,17 @@ class BaseTroveTest(test.BaseTestCase):
         # network ID.
         cls._create_network()
 
-        cls.instance_id = cls.create_instance()
+        instance = cls.create_instance()
+        cls.instance_id = instance['id']
         cls.wait_for_instance_status(cls.instance_id)
+        cls.instance = cls.client.get_resource(
+            "instances", cls.instance_id)['instance']
+        cls.instance_ip = cls.get_instance_ip(cls.instance)
 
     @classmethod
-    def create_instance(cls, database="test_db", username="test_user",
-                        password="password"):
+    def create_instance(cls, name=None, datastore_version=None,
+                        database=constants.DB_NAME, username=constants.DB_USER,
+                        password=constants.DB_PASS, backup_id=None):
         """Create database instance.
 
         Creating database instance is time-consuming, so we define this method
@@ -201,59 +210,53 @@ class BaseTroveTest(test.BaseTestCase):
         https://docs.openstack.org/tempest/latest/write_tests.html#adding-a-new-testcase,
         all test methods within a TestCase are assumed to be executed serially.
         """
-        name = cls.get_resource_name("instance")
+        name = name or cls.get_resource_name("instance")
 
         # Get datastore version
-        res = cls.client.list_resources("datastores")
-        for d in res['datastores']:
-            if d['name'] == cls.datastore:
-                if d.get('default_version'):
-                    datastore_version = d['default_version']
-                else:
-                    datastore_version = d['versions'][0]['name']
-                break
+        if not datastore_version:
+            res = cls.client.list_resources("datastores")
+            for d in res['datastores']:
+                if d['name'] == cls.datastore:
+                    if d.get('default_version'):
+                        datastore_version = d['default_version']
+                    else:
+                        datastore_version = d['versions'][0]['name']
+                    break
 
         body = {
             "instance": {
                 "name": name,
+                "datastore": {
+                    "type": cls.datastore,
+                    "version": datastore_version
+                },
                 "flavorRef": CONF.database.flavor_id,
                 "volume": {
                     "size": 1,
                     "type": CONF.database.volume_type
                 },
-                "databases": [
-                    {
-                        "name": database
-                    }
-                ],
+                "nics": [{"net-id": cls.private_network}],
+                "databases": [{"name": database}],
                 "users": [
                     {
                         "name": username,
                         "password": password,
+                        "databases": [{"name": database}]
                     }
                 ],
-                "datastore": {
-                    "type": cls.datastore,
-                    "version": datastore_version
-                },
-                "nics": [
-                    {
-                        "net-id": cls.private_network
-                    }
-                ],
-                "access": {
-                    "is_public": True
-                }
+                "access": {"is_public": True}
             }
         }
+        if backup_id:
+            body['instance'].update({'restorePoint': {'backupRef': backup_id}})
 
         res = cls.client.create_resource("instances", body)
-        instance_id = res["instance"]["id"]
-        cls.addClassResourceCleanup(cls.wait_for_instance_status, instance_id,
+        cls.addClassResourceCleanup(cls.wait_for_instance_status,
+                                    res["instance"]["id"],
                                     need_delete=True,
                                     expected_status="DELETED")
 
-        return instance_id
+        return res["instance"]
 
     @classmethod
     def wait_for_instance_status(cls, id,
@@ -286,6 +289,14 @@ class BaseTroveTest(test.BaseTestCase):
             expected_status = [expected_status]
 
         if need_delete:
+            # If resource already removed, return
+            try:
+                cls.client.get_resource("instances", id)
+            except exceptions.NotFound:
+                LOG.info('Instance %s not found', id)
+                return
+
+            LOG.info(f"Deleting instance {id}")
             cls.admin_client.force_delete_instance(id)
 
         timer = loopingcall.FixedIntervalWithTimeoutLoopingCall(_wait)
@@ -301,10 +312,11 @@ class BaseTroveTest(test.BaseTestCase):
                                                         message=message)
             raise exceptions.TimeoutException(message)
 
-    def get_instance_ip(self, instance=None):
+    @classmethod
+    def get_instance_ip(cls, instance=None):
         if not instance:
-            instance = self.client.get_resource(
-                "instances", self.instance_id)['instance']
+            instance = cls.client.get_resource(
+                "instances", cls.instance_id)['instance']
 
         # TODO(lxkong): IPv6 needs to be tested.
         v4_ip = None
@@ -322,5 +334,99 @@ class BaseTroveTest(test.BaseTestCase):
                 if netutils.is_valid_ipv4(ip):
                     v4_ip = ip
 
-        self.assertIsNotNone(v4_ip)
+        if not v4_ip:
+            message = ('Failed to get instance IP address.')
+            raise exceptions.TempestException(message)
+
         return v4_ip
+
+    def get_databases(self, instance_id):
+        url = f'instances/{instance_id}/databases'
+        ret = self.client.list_resources(url)
+        return ret['databases']
+
+    def get_users(self, instance_id):
+        url = f'instances/{instance_id}/users'
+        ret = self.client.list_resources(url)
+        return ret['users']
+
+    @classmethod
+    def create_backup(cls, instance_id, backup_name, incremental=False,
+                      parent_id=None, description=None):
+        body = {
+            "backup": {
+                "name": backup_name,
+                "instance": instance_id,
+                "incremental": 1 if incremental else 0,
+            }
+        }
+        if description:
+            body['backup']['description'] = description
+        if parent_id:
+            body['backup']['parent_id'] = parent_id
+
+        res = cls.client.create_resource("backups", body,
+                                         expected_status_code=202)
+        cls.addClassResourceCleanup(cls.wait_for_backup_status,
+                                    res["backup"]['id'],
+                                    expected_status='',
+                                    need_delete=True)
+        return res["backup"]
+
+    @classmethod
+    def delete_backup(cls, backup_id, ignore_notfound=False):
+        cls.client.delete_resource('backups', backup_id,
+                                   ignore_notfound=ignore_notfound)
+
+    @classmethod
+    def wait_for_backup_status(cls, id, expected_status=["COMPLETED"],
+                               need_delete=False):
+        def _wait():
+            try:
+                res = cls.client.get_resource("backups", id)
+                cur_status = res["backup"]["status"]
+            except exceptions.NotFound:
+                if need_delete or "DELETED" in expected_status:
+                    LOG.info('Backup %s is deleted', id)
+                    raise loopingcall.LoopingCallDone()
+                return
+
+            if cur_status in expected_status:
+                LOG.info('Backup %s becomes %s', id, cur_status)
+                raise loopingcall.LoopingCallDone()
+            elif "FAILED" not in expected_status and cur_status == "FAILED":
+                # If backup status goes to FAILED but is not expected, stop
+                # waiting
+                message = "Backup status is FAILED."
+                caller = test_utils.find_test_caller()
+                if caller:
+                    message = '({caller}) {message}'.format(caller=caller,
+                                                            message=message)
+                raise exceptions.UnexpectedResponseCode(message)
+
+        if type(expected_status) != list:
+            expected_status = [expected_status]
+
+        if need_delete:
+            # If resource already removed, return
+            try:
+                cls.client.get_resource("backups", id)
+            except exceptions.NotFound:
+                LOG.info('Backup %s not found', id)
+                return
+
+            LOG.info(f"Deleting backup {id}")
+            cls.delete_backup(id, ignore_notfound=True)
+
+        timer = loopingcall.FixedIntervalWithTimeoutLoopingCall(_wait)
+        try:
+            timer.start(interval=10,
+                        timeout=CONF.database.backup_wait_timeout).wait()
+        except loopingcall.LoopingCallTimeOut:
+            message = ("Backup %s is not in the expected status: %s" %
+                       (id, expected_status))
+            caller = test_utils.find_test_caller()
+            if caller:
+                message = '({caller}) {message}'.format(caller=caller,
+                                                        message=message)
+            raise exceptions.TimeoutException(message)

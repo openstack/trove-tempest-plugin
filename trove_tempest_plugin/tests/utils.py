@@ -51,39 +51,27 @@ def wait_for_removal(delete_func, show_func, *args, **kwargs):
         time.sleep(3)
 
 
-class LocalSqlClient(object):
-    """A sqlalchemy wrapper to manage transactions."""
+def init_engine(db_url):
+    return sqlalchemy.create_engine(db_url)
 
+
+class SQLClient(object):
     def __init__(self, engine):
         self.engine = engine
 
-    def __enter__(self):
-        self.conn = self.engine.connect()
-        self.trans = self.conn.begin()
-        return self.conn
-
-    def __exit__(self, type, value, traceback):
-        if self.trans:
-            if type is not None:
-                self.trans.rollback()
-            else:
-                self.trans.commit()
-        self.conn.close()
-
-    def execute(self, t, **kwargs):
+    def execute(self, cmds, **kwargs):
         try:
-            return self.conn.execute(t, kwargs)
+            with self.engine.begin() as conn:
+                if isinstance(cmds, str):
+                    result = conn.execute(cmds)
+                    # Returns a ResultProxy
+                    # https://docs.sqlalchemy.org/en/13/core/connections.html#sqlalchemy.engine.ResultProxy
+                    return result
+
+                for cmd in cmds:
+                    conn.execute(cmd)
         except Exception as e:
-            self.trans.rollback()
-            self.trans = None
             raise exceptions.TempestException(
                 'Failed to execute database command %s, error: %s' %
-                (t, str(e))
+                (cmds, str(e))
             )
-
-    @staticmethod
-    def init_engine(host, user, password):
-        return sqlalchemy.create_engine(
-            "mysql+pymysql://%s:%s@%s:3306" % (user, password, host),
-            pool_recycle=1800
-        )

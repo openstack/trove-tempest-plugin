@@ -23,23 +23,22 @@ LOG = logging.getLogger(__name__)
 
 
 def get_db_version(ip, username='test_user', password='password'):
-    db_engine = utils.LocalSqlClient.init_engine(ip, username, password)
-    db_client = utils.LocalSqlClient(db_engine)
-
     LOG.info('Trying to access the database %s', ip)
 
-    with db_client:
-        cmd = "SELECT @@GLOBAL.innodb_version;"
-        ret = db_client.execute(cmd)
-        return ret.first()[0]
+    db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306'
+    db_engine = utils.init_engine(db_url)
+    db_client = utils.SQLClient(db_engine)
+
+    cmd = "SELECT @@GLOBAL.innodb_version;"
+    ret = db_client.execute(cmd)
+    return ret.first()[0]
 
 
 class TestInstanceActionsBase(trove_base.BaseTroveTest):
     @decorators.idempotent_id("be6dd514-27d6-11ea-a56a-98f2b3cc23a0")
     def test_instance_upgrade(self):
-        res = self.client.get_resource("instances", self.instance_id)
-        datastore = res["instance"]['datastore']['type']
-        version = res["instance"]['datastore']['version']
+        datastore = self.instance['datastore']['type']
+        version = self.instance['datastore']['version']
         new_version = version
         datastore = self.client.get_resource("datastores", datastore)
         for v in datastore['datastore']['versions']:
@@ -59,8 +58,7 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
         time.sleep(3)
         self.wait_for_instance_status(self.instance_id)
 
-        ip = self.get_instance_ip(res["instance"])
         time.sleep(3)
-        actual = get_db_version(ip)
+        actual = get_db_version(self.instance_ip)
 
         self.assertEqual(actual, new_version)
