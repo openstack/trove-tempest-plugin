@@ -73,4 +73,15 @@ DatabaseGroup = [
         default="lvmdriver-1",
         help="The Cinder volume type used for creating database instance."
     ),
+    cfg.DictOpt(
+        'default_datastore_versions',
+        default={'mysql': '5.7.29'},
+        help='The default datastore versions used to create instance',
+    ),
+    cfg.DictOpt(
+        'pre_upgrade_datastore_versions',
+        default={'mysql': '5.7.29'},
+        help='The datastore versions used to create instances that need to be '
+             'upgrade.',
+    ),
 ]

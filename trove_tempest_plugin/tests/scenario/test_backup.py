@@ -27,16 +27,11 @@ class TestBackupMySQL(base_backup.TestBackupBase):
         LOG.info(f"Inserting data to database {database} on {ip}")
 
         db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306/{database}'
-        db_engine = utils.init_engine(db_url)
-        db_client = utils.SQLClient(db_engine)
+        db_client = utils.SQLClient(db_url)
 
         cmds = [
-            "CREATE TABLE Persons (PersonID int, LastName varchar(255), "
-            "FirstName varchar(255), Address varchar(255), City "
-            "varchar(255));",
-
-            "insert into Persons VALUES (1, 'Kong', 'Lingxian', '150 Willis "
-            "Street', 'Wellington');"
+            "CREATE TABLE Persons (ID int, String varchar(255));",
+            "insert into Persons VALUES (1, 'Lingxian Kong');",
         ]
         db_client.execute(cmds)
 
@@ -46,19 +41,16 @@ class TestBackupMySQL(base_backup.TestBackupBase):
                  f"incremental backup")
 
         db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306/{database}'
-        db_engine = utils.init_engine(db_url)
-        db_client = utils.SQLClient(db_engine)
+        db_client = utils.SQLClient(db_url)
 
         cmds = [
-            "insert into Persons VALUES (99, 'OpenStack', 'Trove', "
-            "'150 Willis Street', 'Wellington');"
+            "insert into Persons VALUES (99, 'OpenStack');"
         ]
         db_client.execute(cmds)
 
     def verify_data(self, ip, username, password, database):
         db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306/{database}'
-        db_engine = utils.init_engine(db_url)
-        db_client = utils.SQLClient(db_engine)
+        db_client = utils.SQLClient(db_url)
 
         cmd = "select * from Persons;"
         ret = db_client.execute(cmd)
@@ -67,14 +59,12 @@ class TestBackupMySQL(base_backup.TestBackupBase):
         self.assertEqual(1, len(rows))
 
         result = dict(zip(keys, rows[0]))
-        expected = {'PersonID': 1, 'LastName': 'Kong', 'FirstName': 'Lingxian',
-                    'Address': '150 Willis Street', 'City': 'Wellington'}
+        expected = {'ID': 1, 'String': 'Lingxian Kong'}
         self.assertEqual(expected, result)
 
     def verify_data_inc(self, ip, username, password, database):
         db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306/{database}'
-        db_engine = utils.init_engine(db_url)
-        db_client = utils.SQLClient(db_engine)
+        db_client = utils.SQLClient(db_url)
 
         cmd = "select * from Persons;"
         ret = db_client.execute(cmd)
@@ -87,13 +77,7 @@ class TestBackupMySQL(base_backup.TestBackupBase):
             actual.append(dict(zip(keys, rows[index])))
 
         expected = [
-            {
-                'PersonID': 1, 'LastName': 'Kong', 'FirstName': 'Lingxian',
-                'Address': '150 Willis Street', 'City': 'Wellington'
-            },
-            {
-                'PersonID': 99, 'LastName': 'OpenStack', 'FirstName': 'Trove',
-                'Address': '150 Willis Street', 'City': 'Wellington'
-            },
+            {'ID': 1, 'String': 'Lingxian Kong'},
+            {'ID': 99, 'String': 'OpenStack'},
         ]
         self.assertEqual(expected, actual)

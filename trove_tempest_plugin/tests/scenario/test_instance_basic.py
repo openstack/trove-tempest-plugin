@@ -18,5 +18,5 @@ class TestInstanceBasicMySQL(base_basic.TestInstanceBasicMySQLBase):
     datastore = 'mysql'
 
 
-class TestInstanceBasicMariaDB(base_basic.TestInstanceBasicMySQLBase):
+class TestInstanceBasicMariaDB(TestInstanceBasicMySQL):
     datastore = 'mariadb'

@@ -27,8 +27,7 @@ class TestInstanceBasicMySQLBase(trove_base.BaseTroveTest):
         LOG.info('Trying to access the database %s', ip)
 
         db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306'
-        db_engine = utils.init_engine(db_url)
-        db_client = utils.SQLClient(db_engine)
+        db_client = utils.SQLClient(db_url)
 
         cmd = "SELECT 1;"
         db_client.execute(cmd)

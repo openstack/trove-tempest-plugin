@@ -198,6 +198,38 @@ class BaseTroveTest(test.BaseTestCase):
             "instances", cls.instance_id)['instance']
         cls.instance_ip = cls.get_instance_ip(cls.instance)
 
+    def assert_single_item(self, items, **props):
+        return self.assert_multiple_items(items, 1, **props)[0]
+
+    def assert_multiple_items(self, items, count, **props):
+        """Check if a object is in a list of objects.
+
+        e.g. props is a sub-dict, items is a list of dicts.
+        """
+
+        def _matches(item, **props):
+            for prop_name, prop_val in props.items():
+                v = item[prop_name] if isinstance(
+                    item, dict) else getattr(item, prop_name)
+
+                if v != prop_val:
+                    return False
+
+            return True
+
+        filtered_items = list(
+            [item for item in items if _matches(item, **props)]
+        )
+
+        found = len(filtered_items)
+
+        if found != count:
+            LOG.info("[FAIL] items=%s, expected_props=%s", str(items), props)
+            self.fail("Wrong number of items found [props=%s, "
+                      "expected=%s, found=%s]" % (props, count, found))
+
+        return filtered_items
+
     @classmethod
     def create_instance(cls, name=None, datastore_version=None,
                         database=constants.DB_NAME, username=constants.DB_USER,
@@ -212,16 +244,25 @@ class BaseTroveTest(test.BaseTestCase):
         """
         name = name or cls.get_resource_name("instance")
 
-        # Get datastore version
+        # Get datastore version. Get from API if the default ds version is not
+        # configured.
         if not datastore_version:
-            res = cls.client.list_resources("datastores")
-            for d in res['datastores']:
-                if d['name'] == cls.datastore:
-                    if d.get('default_version'):
-                        datastore_version = d['default_version']
-                    else:
-                        datastore_version = d['versions'][0]['name']
-                    break
+            default_versions = CONF.database.default_datastore_versions
+            datastore_version = default_versions.get(cls.datastore)
+
+            if not datastore_version:
+                res = cls.client.list_resources("datastores")
+                for d in res['datastores']:
+                    if d['name'] == cls.datastore:
+                        if d.get('default_version'):
+                            datastore_version = d['default_version']
+                        else:
+                            datastore_version = d['versions'][0]['name']
+                        break
+
+        if not datastore_version:
+            message = ('Failed to get available datastore version.')
+            raise exceptions.TempestException(message)
 
         body = {
             "instance": {

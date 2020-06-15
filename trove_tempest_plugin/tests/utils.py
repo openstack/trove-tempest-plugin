@@ -56,8 +56,8 @@ def init_engine(db_url):
 
 
 class SQLClient(object):
-    def __init__(self, engine):
-        self.engine = engine
+    def __init__(self, url):
+        self.engine = init_engine(url)
 
     def execute(self, cmds, **kwargs):
         try:
