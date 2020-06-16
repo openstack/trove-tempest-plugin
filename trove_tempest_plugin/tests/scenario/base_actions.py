@@ -11,8 +11,6 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-import time
-
 from oslo_log import log as logging
 from tempest import config
 from tempest.lib import decorators
@@ -87,9 +85,6 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
                  f"{new_version}")
         body = {"instance": {"datastore_version": new_version}}
         self.client.patch_resource('instances', instance['id'], body)
-
-        # Wait in case the instance status hasn't changed yet.
-        time.sleep(5)
         self.wait_for_instance_status(instance['id'])
         actual = get_db_version(instance_ip)
         self.assertEqual(new_version, actual)

@@ -233,7 +233,8 @@ class BaseTroveTest(test.BaseTestCase):
     @classmethod
     def create_instance(cls, name=None, datastore_version=None,
                         database=constants.DB_NAME, username=constants.DB_USER,
-                        password=constants.DB_PASS, backup_id=None):
+                        password=constants.DB_PASS, backup_id=None,
+                        replica_of=None):
         """Create database instance.
 
         Creating database instance is time-consuming, so we define this method
@@ -290,6 +291,10 @@ class BaseTroveTest(test.BaseTestCase):
         }
         if backup_id:
             body['instance'].update({'restorePoint': {'backupRef': backup_id}})
+        if replica_of:
+            body['instance']['replica_of'] = replica_of
+            body['instance'].pop('databases', None)
+            body['instance'].pop('users', None)
 
         res = cls.client.create_resource("instances", body)
         cls.addClassResourceCleanup(cls.wait_for_instance_status,
@@ -302,7 +307,8 @@ class BaseTroveTest(test.BaseTestCase):
     @classmethod
     def wait_for_instance_status(cls, id,
                                  expected_status=["HEALTHY", "ACTIVE"],
-                                 need_delete=False):
+                                 need_delete=False,
+                                 timeout=CONF.database.database_build_timeout):
         def _wait():
             try:
                 res = cls.client.get_resource("instances", id)
@@ -342,8 +348,7 @@ class BaseTroveTest(test.BaseTestCase):
 
         timer = loopingcall.FixedIntervalWithTimeoutLoopingCall(_wait)
         try:
-            timer.start(interval=10,
-                        timeout=CONF.database.database_build_timeout).wait()
+            timer.start(interval=10, timeout=timeout, initial_delay=5).wait()
         except loopingcall.LoopingCallTimeOut:
             message = ("Instance %s is not in the expected status: %s" %
                        (id, expected_status))
