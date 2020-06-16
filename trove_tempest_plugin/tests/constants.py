@@ -13,5 +13,5 @@
 #    limitations under the License.
 
 DB_USER = 'test_user'
-DB_PASS = 'password'
+DB_PASS = 'PassW0rd'
 DB_NAME = 'test_db'

@@ -71,7 +71,7 @@ class TroveClient(rest_client.RestClient):
         self.delete_resource('instances', id, ignore_notfound=True)
 
     def create_resource(self, obj, req_body, extra_headers={},
-                        expected_status_code=200):
+                        expected_status_code=200, need_response=True):
         headers = {"Content-Type": "application/json"}
         headers = dict(headers, **extra_headers)
         url = '/%s' % obj
@@ -79,11 +79,19 @@ class TroveClient(rest_client.RestClient):
         resp, body = self.post(url, json.dumps(req_body), headers=headers)
         self.expected_success(expected_status_code, resp.status)
 
-        return rest_client.ResponseBody(resp, json.loads(body))
+        if need_response:
+            return rest_client.ResponseBody(resp, json.loads(body))
 
     def patch_resource(self, obj, id, req_body, expected_status_code=202):
         url = '/{obj}/{id}'.format(obj=obj, id=id)
         headers = {"Content-Type": "application/json"}
 
         resp, _ = self.patch(url, json.dumps(req_body), headers=headers)
+        self.expected_success(expected_status_code, resp.status)
+
+    def put_resource(self, url, req_body, expected_status_code=202):
+        url = '/%s' % url
+        headers = {"Content-Type": "application/json"}
+
+        resp, _ = self.put(url, json.dumps(req_body), headers=headers)
         self.expected_success(expected_status_code, resp.status)
