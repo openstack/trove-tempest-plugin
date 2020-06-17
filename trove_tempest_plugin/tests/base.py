@@ -61,6 +61,7 @@ class BaseTroveTest(test.BaseTestCase):
 
         cls.client = cls.os_primary.database.TroveClient()
         cls.admin_client = cls.os_admin.database.TroveClient()
+        cls.admin_server_client = cls.os_admin.servers_client
 
     @classmethod
     def setup_credentials(cls):

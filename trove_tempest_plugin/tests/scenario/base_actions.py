@@ -97,3 +97,52 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
         self.wait_for_instance_status(instance['id'],
                                       expected_status="DELETED",
                                       need_delete=True)
+
+    @decorators.idempotent_id("27914e82-b061-11ea-b87c-00224d6b7bc1")
+    def test_resize(self):
+        # Resize flavor
+        LOG.info(f"Resizing flavor to {CONF.database.resize_flavor_id} for "
+                 f"instance {self.instance_id}")
+        resize_flavor = {
+            "resize": {
+                "flavorRef": CONF.database.resize_flavor_id
+            }
+        }
+        self.client.create_resource(f"instances/{self.instance_id}/action",
+                                    resize_flavor, expected_status_code=202,
+                                    need_response=False)
+        self.wait_for_instance_status(self.instance_id)
+
+        # Verify Trove flavor
+        ret = self.client.get_resource('instances', self.instance_id)
+        self.assertEqual(CONF.database.resize_flavor_id,
+                         ret['instance']['flavor']['id'])
+
+        # Verify Nova flavor
+        params = {
+            'all_tenants': True,
+            'detail': True,
+            'name': self.instance['name']
+        }
+        servers = self.admin_server_client.list_servers(**params)['servers']
+        self.assertEqual(1, len(servers))
+        self.assertEqual(CONF.database.resize_flavor_id,
+                         servers[0]['flavor']['id'])
+
+        # Resize volume
+        LOG.info(f"Resizing volume to 2 for instance {self.instance_id}")
+        resize_volume = {
+            "resize": {
+                "volume": {
+                    "size": 2
+                }
+            }
+        }
+        self.client.create_resource(f"instances/{self.instance_id}/action",
+                                    resize_volume, expected_status_code=202,
+                                    need_response=False)
+        self.wait_for_instance_status(self.instance_id)
+
+        # Verify Trove volume
+        ret = self.client.get_resource('instances', self.instance_id)
+        self.assertEqual(2, ret['instance']['volume']['size'])

@@ -57,6 +57,11 @@ DatabaseGroup = [
         help="The Nova flavor ID used for creating database instance."
     ),
     cfg.StrOpt(
+        'resize_flavor_id',
+        default="d3",
+        help="The Nova flavor ID used for resizing database instance."
+    ),
+    cfg.StrOpt(
         'shared_network',
         default="private",
         help=('Pre-defined network name or ID used for creating database '
