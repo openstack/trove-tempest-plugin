@@ -215,7 +215,7 @@ class TestInstanceBasicMySQLBase(trove_base.BaseTroveTest):
         self.assertEqual(self.instance_id, ret['instances'][0]['id'])
 
         # Get new config option value
-        cur_value = self._get_config_value(self.instance_ip, 'max_connections')
+        cur_value = self.get_config_value(self.instance_ip, 'max_connections')
         self.assertEqual(new_value, int(cur_value))
 
         # Update configuration
@@ -231,7 +231,7 @@ class TestInstanceBasicMySQLBase(trove_base.BaseTroveTest):
         self.client.patch_resource('configurations', config_id, patch_config,
                                    expected_status_code=200)
 
-        cur_value = self._get_config_value(self.instance_ip, 'max_connections')
+        cur_value = self.get_config_value(self.instance_ip, 'max_connections')
         self.assertEqual(updated_value, int(cur_value))
 
         # Detach the configuration from the instance
@@ -248,6 +248,6 @@ class TestInstanceBasicMySQLBase(trove_base.BaseTroveTest):
         self.assertEqual(0, len(ret['instances']))
 
         # Get new config option value
-        cur_value = self._get_config_value(self.instance_ip, 'max_connections')
+        cur_value = self.get_config_value(self.instance_ip, 'max_connections')
         self.assertNotEqual(new_value, int(cur_value))
         self.assertNotEqual(updated_value, int(cur_value))
