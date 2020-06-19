@@ -12,12 +12,14 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 from oslo_log import log as logging
+from tempest import config
 from tempest.lib import decorators
 
 from trove_tempest_plugin.tests import base as trove_base
 from trove_tempest_plugin.tests import constants
 
 LOG = logging.getLogger(__name__)
+CONF = config.CONF
 
 
 class TestBackupBase(trove_base.BaseTroveTest):
@@ -38,6 +40,12 @@ class TestBackupBase(trove_base.BaseTroveTest):
     @classmethod
     def resource_setup(cls):
         super(TestBackupBase, cls).resource_setup()
+
+        # Trove will automatically create a swift container for backup. We need
+        # to make sure there is no swift container left for test user after
+        # testing.
+        if CONF.database.remove_swift_account:
+            cls.addClassResourceCleanup(cls.delete_swift_account)
 
         # Insert some data to the current db instance
         cls.insert_data(cls.instance_ip, constants.DB_USER, constants.DB_PASS,

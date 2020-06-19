@@ -62,6 +62,7 @@ class BaseTroveTest(test.BaseTestCase):
         cls.client = cls.os_primary.database.TroveClient()
         cls.admin_client = cls.os_admin.database.TroveClient()
         cls.admin_server_client = cls.os_admin.servers_client
+        cls.account_client = cls.os_primary.account_client
 
     @classmethod
     def setup_credentials(cls):
@@ -230,6 +231,14 @@ class BaseTroveTest(test.BaseTestCase):
                       "expected=%s, found=%s]" % (props, count, found))
 
         return filtered_items
+
+    @classmethod
+    def delete_swift_account(cls):
+        LOG.info(f"Cleaning up Swift account")
+        try:
+            cls.account_client.delete('')
+        except exceptions.NotFound:
+            pass
 
     @classmethod
     def create_instance(cls, name=None, datastore_version=None,

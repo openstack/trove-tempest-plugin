@@ -89,4 +89,11 @@ DatabaseGroup = [
         help='The datastore versions used to create instances that need to be '
              'upgrade.',
     ),
+    cfg.BoolOpt(
+        'remove_swift_account',
+        default=True,
+        help='If clean up the Swift account for test users after backup '
+             'function test. ResellerAdmin should be added to tempest config '
+             'option "tempest_roles".'
+    )
 ]
