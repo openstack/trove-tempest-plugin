@@ -47,6 +47,12 @@ DatabaseGroup = [
                help='Timeout in seconds to wait for a database instance to '
                     'build.'),
     cfg.IntOpt(
+        'database_restore_timeout',
+        default=3600,
+        help='Timeout in seconds to wait for a database instance to '
+             'be restored.'
+    ),
+    cfg.IntOpt(
         'backup_wait_timeout',
         default=600,
         help='Timeout in seconds to wait for a backup to be completed.'

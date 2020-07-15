@@ -68,7 +68,10 @@ class TestBackupBase(trove_base.BaseTroveTest):
             datastore_version=self.backup['datastore']['version'],
             backup_id=self.backup['id']
         )
-        self.wait_for_instance_status(restore_instance['id'])
+        self.wait_for_instance_status(
+            restore_instance['id'],
+            timeout=CONF.database.database_restore_timeout)
+
         restore_instance = self.client.get_resource(
             "instances", restore_instance['id'])['instance']
         restore_instance_ip = self.get_instance_ip(restore_instance)
@@ -107,7 +110,10 @@ class TestBackupBase(trove_base.BaseTroveTest):
             datastore_version=backup_inc['datastore']['version'],
             backup_id=backup_inc['id']
         )
-        self.wait_for_instance_status(restore_instance['id'])
+        self.wait_for_instance_status(
+            restore_instance['id'],
+            timeout=CONF.database.database_restore_timeout)
+
         restore_instance = self.client.get_resource(
             "instances", restore_instance['id'])['instance']
         restore_instance_ip = self.get_instance_ip(restore_instance)
