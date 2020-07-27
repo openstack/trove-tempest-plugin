@@ -255,12 +255,22 @@ class BaseTroveTest(test.BaseTestCase):
         """
         name = name or cls.get_resource_name("instance")
 
+        # Flavor, volume, datastore are not needed for creating replica.
+        if replica_of:
+            body = {
+                "instance": {
+                    "name": name,
+                    "nics": [{"net-id": cls.private_network}],
+                    "access": {"is_public": True},
+                    "replica_of": replica_of,
+                }
+            }
+
         # Get datastore version. Get from API if the default ds version is not
         # configured.
-        if not datastore_version:
+        elif not datastore_version:
             default_versions = CONF.database.default_datastore_versions
             datastore_version = default_versions.get(cls.datastore)
-
             if not datastore_version:
                 res = cls.client.list_resources("datastores")
                 for d in res['datastores']:
@@ -270,41 +280,38 @@ class BaseTroveTest(test.BaseTestCase):
                         else:
                             datastore_version = d['versions'][0]['name']
                         break
+            if not datastore_version:
+                message = ('Failed to get available datastore version.')
+                raise exceptions.TempestException(message)
 
-        if not datastore_version:
-            message = ('Failed to get available datastore version.')
-            raise exceptions.TempestException(message)
-
-        body = {
-            "instance": {
-                "name": name,
-                "datastore": {
-                    "type": cls.datastore,
-                    "version": datastore_version
-                },
-                "flavorRef": CONF.database.flavor_id,
-                "volume": {
-                    "size": 1,
-                    "type": CONF.database.volume_type
-                },
-                "nics": [{"net-id": cls.private_network}],
-                "databases": [{"name": database}],
-                "users": [
-                    {
-                        "name": username,
-                        "password": password,
-                        "databases": [{"name": database}]
-                    }
-                ],
-                "access": {"is_public": True}
+        if not replica_of:
+            body = {
+                "instance": {
+                    "name": name,
+                    "datastore": {
+                        "type": cls.datastore,
+                        "version": datastore_version
+                    },
+                    "flavorRef": CONF.database.flavor_id,
+                    "volume": {
+                        "size": 1,
+                        "type": CONF.database.volume_type
+                    },
+                    "nics": [{"net-id": cls.private_network}],
+                    "databases": [{"name": database}],
+                    "users": [
+                        {
+                            "name": username,
+                            "password": password,
+                            "databases": [{"name": database}]
+                        }
+                    ],
+                    "access": {"is_public": True}
+                }
             }
-        }
-        if backup_id:
-            body['instance'].update({'restorePoint': {'backupRef': backup_id}})
-        if replica_of:
-            body['instance']['replica_of'] = replica_of
-            body['instance'].pop('databases', None)
-            body['instance'].pop('users', None)
+            if backup_id:
+                body['instance'].update(
+                    {'restorePoint': {'backupRef': backup_id}})
 
         res = cls.client.create_resource("instances", body)
         cls.addClassResourceCleanup(cls.wait_for_instance_status,

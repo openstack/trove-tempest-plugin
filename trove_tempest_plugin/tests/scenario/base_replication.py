@@ -167,6 +167,26 @@ class TestReplicationBase(trove_base.BaseTroveTest):
         self.verify_data_replication(replica2_ip, constants.DB_USER,
                                      constants.DB_PASS, constants.DB_NAME)
 
+        # Volume resize to primary
+        LOG.info(f"Resizing volume for primary {self.instance_id} to 2G")
+        req_body = {
+            "resize": {
+                "volume": {"size": 2}
+            }
+        }
+        self.client.create_resource(f"instances/{self.instance_id}/action",
+                                    req_body, expected_status_code=202,
+                                    need_response=False)
+        self.wait_for_instance_status(self.instance_id)
+        self.wait_for_instance_status(replica1_id)
+        self.wait_for_instance_status(replica2_id)
+
+        # Verify the volumes of all the replicas are also resized to 2G
+        replica1 = self.client.get_resource('instances', replica1_id)
+        self.assertEqual(2, replica1['instance']['volume'].get('size', 0))
+        replica2 = self.client.get_resource('instances', replica2_id)
+        self.assertEqual(2, replica2['instance']['volume'].get('size', 0))
+
         # Promote replica1 to primary
         LOG.info(f"Promoting replica1 {replica1_id} to primary")
         promote_primary = {
