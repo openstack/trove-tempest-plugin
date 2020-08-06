@@ -101,5 +101,9 @@ DatabaseGroup = [
         help='If clean up the Swift account for test users after backup '
              'function test. ResellerAdmin should be added to tempest config '
              'option "tempest_roles".'
-    )
+    ),
+    cfg.StrOpt(
+        'rebuild_image_id',
+        help="The new guest image ID used for rebuilding database instance."
+    ),
 ]

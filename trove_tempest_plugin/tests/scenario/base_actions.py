@@ -14,6 +14,7 @@
 from oslo_log import log as logging
 from tempest import config
 from tempest.lib import decorators
+import testtools
 
 from trove_tempest_plugin.tests import base as trove_base
 from trove_tempest_plugin.tests import constants
@@ -43,6 +44,12 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
         pass
 
     def verify_data_upgrade(self, *args, **kwargs):
+        pass
+
+    def insert_data_before_rebuild(self, *args, **kwargs):
+        pass
+
+    def verify_data_after_rebuild(self, *args, **kwargs):
         pass
 
     @classmethod
@@ -146,3 +153,26 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
         # Verify Trove volume
         ret = self.client.get_resource('instances', self.instance_id)
         self.assertEqual(2, ret['instance']['volume']['size'])
+
+    @decorators.idempotent_id("8d4d675c-d829-11ea-b87c-00224d6b7bc1")
+    @testtools.skipUnless(CONF.database.rebuild_image_id,
+                          'Image for rebuild not configured.')
+    def test_rebuild(self):
+        self.insert_data_before_rebuild(self.instance_ip, constants.DB_USER,
+                                        constants.DB_PASS, constants.DB_NAME)
+
+        LOG.info(f"Rebuilding instance {self.instance_id} with image "
+                 f"{CONF.database.rebuild_image_id}")
+        rebuild_req = {
+            "rebuild": {
+                "image_id": CONF.database.rebuild_image_id
+            }
+        }
+        self.admin_client.create_resource(
+            f"mgmt/instances/{self.instance_id}/action",
+            rebuild_req, expected_status_code=202,
+            need_response=False)
+        self.wait_for_instance_status(self.instance_id)
+
+        self.verify_data_after_rebuild(self.instance_ip, constants.DB_USER,
+                                       constants.DB_PASS, constants.DB_NAME)

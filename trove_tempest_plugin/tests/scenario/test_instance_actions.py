@@ -62,6 +62,36 @@ class TestInstanceActionsMySQL(base_actions.TestInstanceActionsBase):
         expected = {'ID': 99, 'String': 'Upgrade'}
         self.assert_single_item(result, **expected)
 
+    def insert_data_before_rebuild(self, ip, username, password, database):
+        LOG.info(f"Inserting data to database {database} on {ip} "
+                 f"before rebuilding instance")
+
+        db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306/{database}'
+        db_client = utils.SQLClient(db_url)
+
+        cmds = [
+            "CREATE TABLE Rebuild (ID int, String varchar(255));",
+            "insert into Rebuild VALUES (1, 'rebuild-data');"
+        ]
+        db_client.execute(cmds)
+
+    def verify_data_after_rebuild(self, ip, username, password, database):
+        LOG.info(f"Verifying data in database {database} on {ip} "
+                 f"after rebuilding instance")
+
+        db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306/{database}'
+        db_client = utils.SQLClient(db_url)
+
+        cmd = "select * from Rebuild;"
+        ret = db_client.execute(cmd)
+        keys = ret.keys()
+        rows = ret.fetchall()
+        self.assertEqual(1, len(rows))
+
+        actual = dict(zip(keys, rows[0]))
+        expected = {'ID': 1, 'String': 'rebuild-data'}
+        self.assertEqual(expected, actual)
+
 
 class TestInstanceActionsMariaDB(TestInstanceActionsMySQL):
     datastore = 'mariadb'
