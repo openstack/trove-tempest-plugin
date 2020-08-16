@@ -61,6 +61,8 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
                     constants.DB_NAME)
 
     @decorators.idempotent_id("be6dd514-27d6-11ea-a56a-98f2b3cc23a0")
+    @testtools.skipUnless(CONF.database.pre_upgrade_datastore_versions,
+                          'Datastore upgrade is disabled.')
     def test_instance_upgrade(self):
         cur_version = self.instance['datastore']['version']
         cfg_versions = CONF.database.pre_upgrade_datastore_versions

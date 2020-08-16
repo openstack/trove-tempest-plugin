@@ -91,7 +91,7 @@ DatabaseGroup = [
     ),
     cfg.DictOpt(
         'pre_upgrade_datastore_versions',
-        default={'mysql': '5.7.29'},
+        default={},
         help='The datastore versions used to create instances that need to be '
              'upgrade.',
     ),
