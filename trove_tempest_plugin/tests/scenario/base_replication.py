@@ -15,80 +15,40 @@ import time
 
 from oslo_log import log as logging
 from tempest import config
-from tempest.lib import decorators
 
 from trove_tempest_plugin.tests import base as trove_base
-from trove_tempest_plugin.tests import constants
-from trove_tempest_plugin.tests import utils
 
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
 
 
 class TestReplicationBase(trove_base.BaseTroveTest):
-    def insert_data_replication(self, ip, username, password, database):
-        db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306/{database}'
-        LOG.info(f"Inserting data for replication, db_url: {db_url}")
-        db_client = utils.SQLClient(db_url)
+    def insert_data_replication(self, *args, **kwargs):
+        pass
 
-        cmds = [
-            "CREATE TABLE Persons (ID int, String varchar(255));",
-            "insert into Persons VALUES (1, 'replication');"
-        ]
-        db_client.execute(cmds)
+    def verify_data_replication(self, *args, **kwargs):
+        pass
 
-    def verify_data_replication(self, ip, username, password, database):
-        db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306/{database}'
-        LOG.info(f"Verifying data for replication, db_url: {db_url}")
-        db_client = utils.SQLClient(db_url)
-        cmd = "select * from Persons;"
-        ret = db_client.execute(cmd)
-        keys = ret.keys()
-        rows = ret.fetchall()
-        self.assertEqual(1, len(rows))
+    def insert_data_after_promote(self, *args, **kwargs):
+        pass
 
-        result = []
-        for index in range(len(rows)):
-            result.append(dict(zip(keys, rows[index])))
-        expected = {'ID': 1, 'String': 'replication'}
-        self.assert_single_item(result, **expected)
+    def verify_data_after_promote(self, *args, **kwargs):
+        pass
 
-    def insert_data_after_promote(self, ip, username, password, database):
-        db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306/{database}'
-        LOG.info(f"Inserting data after promotion, db_url: {db_url}")
-        db_client = utils.SQLClient(db_url)
+    def create_database(self, name, **kwargs):
+        pass
 
-        cmds = [
-            "insert into Persons VALUES (2, 'promote');"
-        ]
-        db_client.execute(cmds)
-
-    def verify_data_after_promote(self, ip, username, password, database):
-        db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306/{database}'
-        LOG.info(f"Verifying data after promotion, db_url: {db_url}")
-        db_client = utils.SQLClient(db_url)
-        cmd = "select * from Persons;"
-        ret = db_client.execute(cmd)
-        keys = ret.keys()
-        rows = ret.fetchall()
-        self.assertGreater(len(rows), 1)
-
-        result = []
-        for index in range(len(rows)):
-            result.append(dict(zip(keys, rows[index])))
-        expected = {'ID': 2, 'String': 'promote'}
-        self.assert_single_item(result, **expected)
-
-    @decorators.idempotent_id("280d09c6-b027-11ea-b87c-00224d6b7bc1")
-    def test_replication(self):
+    def replication_test(self):
         # Insert data for primary
-        self.insert_data_replication(self.instance_ip, constants.DB_USER,
-                                     constants.DB_PASS, constants.DB_NAME)
+        LOG.info(f"Inserting data before creating replicas on "
+                 f"{self.instance_ip}")
+        self.insert_data_replication(self.instance_ip)
 
         # Create replica1
         LOG.info(f"Creating replica1 for instance {self.instance_id}")
         name = self.get_resource_name("replica-01")
-        replica1 = self.create_instance(name, replica_of=self.instance_id)
+        replica1 = self.create_instance(name, replica_of=self.instance_id,
+                                        create_user=self.create_user)
         replica1_id = replica1['id']
         self.addCleanup(self.wait_for_instance_status, replica1_id,
                         need_delete=True, expected_status='DELETED')
@@ -114,28 +74,35 @@ class TestReplicationBase(trove_base.BaseTroveTest):
 
         # Verify databases created in replica
         time.sleep(5)
-        primary_dbs = self.get_databases(self.instance_id)
-        replica_dbs = self.get_databases(replica1_id)
+        LOG.info(f"Getting databases on primary {self.instance_ip}"
+                 f"({self.instance_id}) and replica {replica1_ip}"
+                 f"({replica1_id})")
+        primary_dbs = self.get_databases(self.instance_id, ip=self.instance_ip)
+        replica_dbs = self.get_databases(replica1_id, ip=replica1_ip)
         self.assertEqual(len(primary_dbs), len(replica_dbs))
 
         # Create a new database in primary and verify in replica
         LOG.info(f"Creating database in instance {self.instance_id}")
-        create_db = {"databases": [{"name": 'db_for_replication'}]}
-        self.client.create_resource(f"instances/{self.instance_id}/databases",
-                                    create_db, expected_status_code=202,
-                                    need_response=False)
+        db_name = 'db_for_replication'
+        self.create_database(db_name, ip=self.instance_ip)
+
         time.sleep(5)
-        new_primary_dbs = self.get_databases(self.instance_id)
-        new_replica1_dbs = self.get_databases(replica1_id)
+        LOG.info(f"Getting databases on primary {self.instance_ip}"
+                 f"({self.instance_id}) and replica {replica1_ip}"
+                 f"({replica1_id})")
+        new_primary_dbs = self.get_databases(self.instance_id,
+                                             ip=self.instance_ip)
+        new_replica1_dbs = self.get_databases(replica1_id, ip=replica1_ip)
         self.assertEqual(len(new_primary_dbs), len(new_replica1_dbs))
         self.assertGreater(len(new_replica1_dbs), len(replica_dbs))
         new_db_names = [db['name'] for db in new_replica1_dbs]
-        self.assertIn('db_for_replication', new_db_names)
+        self.assertIn(db_name, new_db_names)
 
         # Create replica2
         LOG.info(f"Creating replica2 for instance {self.instance_id}")
         name = self.get_resource_name("replica-02")
-        replica2 = self.create_instance(name, replica_of=self.instance_id)
+        replica2 = self.create_instance(name, replica_of=self.instance_id,
+                                        create_user=self.create_user)
         replica2_id = replica2['id']
         self.addCleanup(self.wait_for_instance_status, replica2_id,
                         need_delete=True, expected_status='DELETED')
@@ -157,15 +124,15 @@ class TestReplicationBase(trove_base.BaseTroveTest):
 
         # Verify databases synced to replica2
         time.sleep(5)
-        replica2_dbs = self.get_databases(replica2_id)
+        LOG.info(f"Getting databases on replica {replica2_ip}({replica2_id})")
+        replica2_dbs = self.get_databases(replica2_id, ip=replica2_ip)
         replica2_db_names = [db['name'] for db in replica2_dbs]
-        self.assertIn('db_for_replication', replica2_db_names)
+        self.assertIn(db_name, replica2_db_names)
 
         # Verify data synchronization on replica1 and replica2
-        self.verify_data_replication(replica1_ip, constants.DB_USER,
-                                     constants.DB_PASS, constants.DB_NAME)
-        self.verify_data_replication(replica2_ip, constants.DB_USER,
-                                     constants.DB_PASS, constants.DB_NAME)
+        LOG.info(f"Verifying data on replicas {replica1_ip} and {replica2_ip}")
+        self.verify_data_replication(replica1_ip)
+        self.verify_data_replication(replica2_ip)
 
         # Volume resize to primary
         LOG.info(f"Resizing volume for primary {self.instance_id} to 2G")
@@ -218,13 +185,13 @@ class TestReplicationBase(trove_base.BaseTroveTest):
         self.assertEqual(replica1_id, ret['instance']['replica_of']['id'])
 
         # Insert data to new primary and verify in replicas
-        self.insert_data_after_promote(replica1_ip, constants.DB_USER,
-                                       constants.DB_PASS, constants.DB_NAME)
+        LOG.info(f"Inserting data on new primary {replica1_ip}")
+        self.insert_data_after_promote(replica1_ip)
         time.sleep(5)
-        self.verify_data_after_promote(self.instance_ip, constants.DB_USER,
-                                       constants.DB_PASS, constants.DB_NAME)
-        self.verify_data_after_promote(replica2_ip, constants.DB_USER,
-                                       constants.DB_PASS, constants.DB_NAME)
+        LOG.info(f"Verifying data on new replicas {self.instance_ip} and "
+                 f"{replica2_ip}")
+        self.verify_data_after_promote(self.instance_ip)
+        self.verify_data_after_promote(replica2_ip)
 
         # Detach original primary from the replication cluster
         LOG.info(f"Detaching replica {self.instance_id} from the replication "
@@ -234,8 +201,8 @@ class TestReplicationBase(trove_base.BaseTroveTest):
                 "replica_of": ""
             }
         }
-        self.client.patch_resource('instances', self.instance_id,
-                                   detach_replica)
+        self.client.put_resource(f'/instances/{self.instance_id}',
+                                 detach_replica)
         self.wait_for_instance_status(self.instance_id)
 
         # Verify original primary

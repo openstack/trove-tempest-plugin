@@ -42,6 +42,17 @@ DatabaseGroup = [
         'enabled_datastores',
         default=['mysql']
     ),
+    cfg.DictOpt(
+        'default_datastore_versions',
+        default={'mysql': '5.7.29'},
+        help='The default datastore versions used to create instance',
+    ),
+    cfg.DictOpt(
+        'pre_upgrade_datastore_versions',
+        default={},
+        help='The datastore versions used to create instances that need to be '
+             'upgrade.',
+    ),
     cfg.IntOpt('database_build_timeout',
                default=1800,
                help='Timeout in seconds to wait for a database instance to '
@@ -83,17 +94,6 @@ DatabaseGroup = [
         'volume_type',
         default="lvmdriver-1",
         help="The Cinder volume type used for creating database instance."
-    ),
-    cfg.DictOpt(
-        'default_datastore_versions',
-        default={'mysql': '5.7.29'},
-        help='The default datastore versions used to create instance',
-    ),
-    cfg.DictOpt(
-        'pre_upgrade_datastore_versions',
-        default={},
-        help='The datastore versions used to create instances that need to be '
-             'upgrade.',
     ),
     cfg.BoolOpt(
         'remove_swift_account',

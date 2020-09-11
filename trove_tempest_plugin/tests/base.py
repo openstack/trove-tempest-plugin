@@ -37,6 +37,9 @@ class BaseTroveTest(test.BaseTestCase):
     instance = None
     instance_id = None
     instance_ip = None
+    password = ""
+    create_user = True
+    enable_root = False
 
     @classmethod
     def get_resource_name(cls, resource_type):
@@ -193,12 +196,15 @@ class BaseTroveTest(test.BaseTestCase):
         # network ID.
         cls._create_network()
 
-        instance = cls.create_instance()
+        instance = cls.create_instance(create_user=cls.create_user)
         cls.instance_id = instance['id']
         cls.wait_for_instance_status(cls.instance_id)
         cls.instance = cls.client.get_resource(
             "instances", cls.instance_id)['instance']
         cls.instance_ip = cls.get_instance_ip(cls.instance)
+
+        if cls.enable_root:
+            cls.password = cls.get_root_pass(cls.instance_id)
 
     def assert_single_item(self, items, **props):
         return self.assert_multiple_items(items, 1, **props)[0]
@@ -244,7 +250,7 @@ class BaseTroveTest(test.BaseTestCase):
     def create_instance(cls, name=None, datastore_version=None,
                         database=constants.DB_NAME, username=constants.DB_USER,
                         password=constants.DB_PASS, backup_id=None,
-                        replica_of=None):
+                        replica_of=None, create_user=True):
         """Create database instance.
 
         Creating database instance is time-consuming, so we define this method
@@ -298,20 +304,23 @@ class BaseTroveTest(test.BaseTestCase):
                         "type": CONF.database.volume_type
                     },
                     "nics": [{"net-id": cls.private_network}],
-                    "databases": [{"name": database}],
-                    "users": [
-                        {
-                            "name": username,
-                            "password": password,
-                            "databases": [{"name": database}]
-                        }
-                    ],
                     "access": {"is_public": True}
                 }
             }
             if backup_id:
                 body['instance'].update(
                     {'restorePoint': {'backupRef': backup_id}})
+            if create_user:
+                body['instance'].update({
+                    'databases': [{"name": database}],
+                    "users": [
+                        {
+                            "name": username,
+                            "password": password,
+                            "databases": [{"name": database}]
+                        }
+                    ]
+                })
 
         res = cls.client.create_resource("instances", body)
         cls.addClassResourceCleanup(cls.wait_for_instance_status,
@@ -320,6 +329,16 @@ class BaseTroveTest(test.BaseTestCase):
                                     expected_status="DELETED")
 
         return res["instance"]
+
+    @classmethod
+    def restart_instance(cls, instance_id):
+        """Restart database service and wait until it's healthy."""
+        cls.client.create_resource(
+            f"instances/{instance_id}/action",
+            {"restart": {}},
+            expected_status_code=202,
+            need_response=False)
+        cls.wait_for_instance_status(instance_id)
 
     @classmethod
     def wait_for_instance_status(cls, id,
@@ -403,7 +422,7 @@ class BaseTroveTest(test.BaseTestCase):
 
         return v4_ip
 
-    def get_databases(self, instance_id):
+    def get_databases(self, instance_id, **kwargs):
         url = f'instances/{instance_id}/databases'
         ret = self.client.list_resources(url)
         return ret['databases']
@@ -493,3 +512,8 @@ class BaseTroveTest(test.BaseTestCase):
                 message = '({caller}) {message}'.format(caller=caller,
                                                         message=message)
             raise exceptions.TimeoutException(message)
+
+    @classmethod
+    def get_root_pass(cls, instance_id):
+        resp = cls.client.create_resource(f"instances/{instance_id}/root", {})
+        return resp['user']['password']

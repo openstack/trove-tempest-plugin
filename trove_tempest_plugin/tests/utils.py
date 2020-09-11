@@ -14,6 +14,7 @@
 import time
 
 from oslo_log import log as logging
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import sqlalchemy
 from tempest.lib import exceptions
 
@@ -56,22 +57,42 @@ def init_engine(db_url):
 
 
 class SQLClient(object):
-    def __init__(self, url):
-        self.engine = init_engine(url)
+    def __init__(self, conn_str):
+        self.engine = init_engine(conn_str)
 
-    def execute(self, cmds, **kwargs):
+    def conn_execute(self, conn, cmds):
+        if isinstance(cmds, str):
+            result = conn.execute(cmds)
+            # Returns a ResultProxy
+            # https://docs.sqlalchemy.org/en/13/core/connections.html#sqlalchemy.engine.ResultProxy
+            return result
+
+        for cmd in cmds:
+            conn.execute(cmd)
+
+    def pgsql_execute(self, cmds, **kwargs):
         try:
-            with self.engine.begin() as conn:
-                if isinstance(cmds, str):
-                    result = conn.execute(cmds)
-                    # Returns a ResultProxy
-                    # https://docs.sqlalchemy.org/en/13/core/connections.html#sqlalchemy.engine.ResultProxy
-                    return result
-
-                for cmd in cmds:
-                    conn.execute(cmd)
+            with self.engine.connect() as conn:
+                conn.connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+                return self.conn_execute(conn, cmds)
         except Exception as e:
             raise exceptions.TempestException(
                 'Failed to execute database command %s, error: %s' %
                 (cmds, str(e))
             )
+
+    def mysql_execute(self, cmds, **kwargs):
+        try:
+            with self.engine.begin() as conn:
+                return self.conn_execute(conn, cmds)
+        except Exception as e:
+            raise exceptions.TempestException(
+                'Failed to execute database command %s, error: %s' %
+                (cmds, str(e))
+            )
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.engine.dispose()

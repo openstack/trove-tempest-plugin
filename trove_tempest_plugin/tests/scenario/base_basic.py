@@ -24,28 +24,129 @@ CONF = config.CONF
 LOG = logging.getLogger(__name__)
 
 
-class TestInstanceBasicMySQLBase(trove_base.BaseTroveTest):
+class TestInstanceBasicBase(trove_base.BaseTroveTest):
+    def get_config_value(self, ip, option, **kwargs):
+        pass
+
+    def configuration_test(self, create_values, update_values,
+                           need_restart=False):
+        """Test configuration.
+
+        The create_values and update_values are both dict with one key, the
+        value should be in type int.
+        """
+        # Create new configuration
+        config_name = 'test_config'
+        key = list(create_values.keys())[0]
+        value = list(create_values.values())[0]
+        create_config = {
+            "configuration": {
+                "datastore": {
+                    "type": self.datastore,
+                    "version": self.instance['datastore']['version']
+                },
+                "values": create_values,
+                "name": config_name
+            }
+        }
+        LOG.info(f"Creating new configuration {config_name}")
+        config = self.client.create_resource('configurations', create_config)
+        config_id = config['configuration']['id']
+        self.addCleanup(self.client.delete_resource, 'configurations',
+                        config_id, ignore_notfound=True)
+        self.assertEqual(0, config['configuration']['instance_count'])
+
+        ret = self.client.list_resources(
+            f"configurations/{config_id}/instances")
+        self.assertEqual(0, len(ret['instances']))
+
+        # Attach the configuration to the existing instance
+        attach_config = {
+            "instance": {
+                "configuration": config_id
+            }
+        }
+        LOG.info(f"Attaching config {config_id} to instance "
+                 f"{self.instance_id}")
+        self.client.put_resource(f'instances/{self.instance_id}',
+                                 attach_config)
+
+        if need_restart:
+            LOG.info(f"Restarting instance {self.instance_id}")
+            self.restart_instance(self.instance_id)
+
+        ret = self.client.list_resources(
+            f"configurations/{config_id}/instances")
+        self.assertEqual(1, len(ret['instances']))
+        self.assertEqual(self.instance_id, ret['instances'][0]['id'])
+
+        # Get new config option value
+        LOG.info(f"Getting config value for {key} on {self.instance_ip}")
+        cur_value = self.get_config_value(self.instance_ip, key)
+        self.assertEqual(value, cur_value)
+
+        # Update configuration
+        new_key = list(update_values.keys())[0]
+        new_value = list(update_values.values())[0]
+        patch_config = {
+            "configuration": {
+                "values": update_values
+            }
+        }
+        LOG.info(f"Updating config {config_id}")
+        self.client.patch_resource('configurations', config_id, patch_config,
+                                   expected_status_code=200)
+
+        if need_restart:
+            LOG.info(f"Restarting instance {self.instance_id}")
+            self.restart_instance(self.instance_id)
+
+        LOG.info(f"Getting config value for {new_key} on {self.instance_ip}")
+        cur_value = self.get_config_value(self.instance_ip, new_key)
+        self.assertEqual(new_value, cur_value)
+
+        # Detach the configuration from the instance
+        LOG.info(f"Detaching from instance {self.instance_id}")
+        detach_config = {
+            "instance": {
+                "configuration": None
+            }
+        }
+        self.client.put_resource(f'instances/{self.instance_id}',
+                                 detach_config)
+
+        if need_restart:
+            LOG.info(f"Restarting instance {self.instance_id}")
+            self.restart_instance(self.instance_id)
+
+        ret = self.client.list_resources(
+            f"configurations/{config_id}/instances")
+        self.assertEqual(0, len(ret['instances']))
+
+        # Get new config option value
+        LOG.info(f"Getting config value for {new_key} on {self.instance_ip}")
+        cur_value = self.get_config_value(self.instance_ip, new_key)
+        self.assertNotEqual(value, cur_value)
+        self.assertNotEqual(new_value, cur_value)
+
+
+class TestInstanceBasicMySQLBase(TestInstanceBasicBase):
     def _access_db(self, ip, username=constants.DB_USER,
                    password=constants.DB_PASS, database=constants.DB_NAME):
         db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306/{database}'
-        LOG.info(f'Trying to access the database {db_url}')
-        db_client = utils.SQLClient(db_url)
-
-        cmd = "SELECT 1;"
-        db_client.execute(cmd)
+        with utils.SQLClient(db_url) as db_client:
+            cmd = "SELECT 1;"
+            db_client.mysql_execute(cmd)
 
     def get_config_value(self, ip, option, username=constants.DB_USER,
                          password=constants.DB_PASS):
         db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306'
-        LOG.info(f'Trying to get option value for {option} from database '
-                 f'{db_url}')
-        db_client = utils.SQLClient(db_url)
-
-        cmd = f"show variables where Variable_name in ('{option}');"
-        ret = db_client.execute(cmd)
-        rows = ret.fetchall()
+        with utils.SQLClient(db_url) as db_client:
+            cmd = f"show variables where Variable_name in ('{option}');"
+            ret = db_client.mysql_execute(cmd)
+            rows = ret.fetchall()
         self.assertEqual(1, len(rows))
-        return rows[0][1]
+        return int(rows[0][1])
 
     @decorators.idempotent_id("40cf38ce-cfbf-11e9-8760-1458d058cfb2")
     def test_database_access(self):
@@ -57,6 +158,7 @@ class TestInstanceBasicMySQLBase(trove_base.BaseTroveTest):
         user_names = [user['name'] for user in users]
         self.assertIn(constants.DB_USER, user_names)
 
+        LOG.info(f"Accessing database on {self.instance_ip}")
         self._access_db(self.instance_ip)
 
     @decorators.idempotent_id("c5a9dcda-af5b-11ea-b87c-00224d6b7bc1")
@@ -124,6 +226,8 @@ class TestInstanceBasicMySQLBase(trove_base.BaseTroveTest):
         self.assertIn(user2, cur_user_names)
 
         # user1 should have access to db1
+        LOG.info(f"Accessing database on {self.instance_ip}, user: {user1}, "
+                 f"db: {db1}")
         self._access_db(self.instance_ip, user1, constants.DB_PASS, db1)
         # user2 should not have access to db2
         self.assertRaises(exceptions.TempestException, self._access_db,
@@ -145,6 +249,8 @@ class TestInstanceBasicMySQLBase(trove_base.BaseTroveTest):
         user2_dbs = [db['name'] for db in user2_dbs['databases']]
         self.assertIn(db2, user2_dbs)
         # Now user2 should have access to db2
+        LOG.info(f"Accessing database on {self.instance_ip}, user: {user2}, "
+                 f"db: {db2}")
         self._access_db(self.instance_ip, user2, constants.DB_PASS, db2)
 
         LOG.info(f"Revoking user {user2} access to database {db2}")
@@ -172,82 +278,6 @@ class TestInstanceBasicMySQLBase(trove_base.BaseTroveTest):
 
     @decorators.idempotent_id("ce8277b0-af7c-11ea-b87c-00224d6b7bc1")
     def test_configuration(self):
-        # Create new configuration
-        config_name = 'test_config'
-        new_value = 555
-        create_config = {
-            "configuration": {
-                "datastore": {
-                    "type": self.datastore,
-                    "version": self.instance['datastore']['version']
-                },
-                "values": {
-                    "max_connections": new_value
-                },
-                "name": config_name
-            }
-        }
-        LOG.info(f"Creating new configuration {config_name}")
-        config = self.client.create_resource('configurations', create_config)
-        config_id = config['configuration']['id']
-        self.addCleanup(self.client.delete_resource, 'configurations',
-                        config_id, ignore_notfound=True)
-        self.assertEqual(0, config['configuration']['instance_count'])
-
-        ret = self.client.list_resources(
-            f"configurations/{config_id}/instances")
-        self.assertEqual(0, len(ret['instances']))
-
-        # Attach the configuration to the existing instance
-        attach_config = {
-            "instance": {
-                "configuration": config_id
-            }
-        }
-        LOG.info(f"Attaching config {config_id} to instance "
-                 f"{self.instance_id}")
-        self.client.put_resource(f'instances/{self.instance_id}',
-                                 attach_config)
-
-        ret = self.client.list_resources(
-            f"configurations/{config_id}/instances")
-        self.assertEqual(1, len(ret['instances']))
-        self.assertEqual(self.instance_id, ret['instances'][0]['id'])
-
-        # Get new config option value
-        cur_value = self.get_config_value(self.instance_ip, 'max_connections')
-        self.assertEqual(new_value, int(cur_value))
-
-        # Update configuration
-        updated_value = 666
-        patch_config = {
-            "configuration": {
-                "values": {
-                    "max_connections": updated_value
-                }
-            }
-        }
-        LOG.info(f"Updating config {config_id}")
-        self.client.patch_resource('configurations', config_id, patch_config,
-                                   expected_status_code=200)
-
-        cur_value = self.get_config_value(self.instance_ip, 'max_connections')
-        self.assertEqual(updated_value, int(cur_value))
-
-        # Detach the configuration from the instance
-        detach_config = {
-            "instance": {
-                "configuration": ""
-            }
-        }
-        self.client.put_resource(f'instances/{self.instance_id}',
-                                 detach_config)
-
-        ret = self.client.list_resources(
-            f"configurations/{config_id}/instances")
-        self.assertEqual(0, len(ret['instances']))
-
-        # Get new config option value
-        cur_value = self.get_config_value(self.instance_ip, 'max_connections')
-        self.assertNotEqual(new_value, int(cur_value))
-        self.assertNotEqual(updated_value, int(cur_value))
+        create_values = {"max_connections": 555}
+        update_values = {"max_connections": 666}
+        self.configuration_test(create_values, update_values)

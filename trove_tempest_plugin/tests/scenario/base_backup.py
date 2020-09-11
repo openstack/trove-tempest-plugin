@@ -13,10 +13,8 @@
 #    limitations under the License.
 from oslo_log import log as logging
 from tempest import config
-from tempest.lib import decorators
 
 from trove_tempest_plugin.tests import base as trove_base
-from trove_tempest_plugin.tests import constants
 
 LOG = logging.getLogger(__name__)
 CONF = config.CONF
@@ -48,17 +46,18 @@ class TestBackupBase(trove_base.BaseTroveTest):
             cls.addClassResourceCleanup(cls.delete_swift_account)
 
         # Insert some data to the current db instance
-        cls.insert_data(cls.instance_ip, constants.DB_USER, constants.DB_PASS,
-                        constants.DB_NAME)
+        LOG.info(f"Inserting data on {cls.instance_ip} before creating full"
+                 f"backup")
+        cls.insert_data(cls.instance_ip)
 
         # Create a backup that is shared within this test class.
+        LOG.info(f"Creating full backup for instance {cls.instance_id}")
         name = cls.get_resource_name("backup")
         backup = cls.create_backup(cls.instance_id, name)
         cls.wait_for_backup_status(backup['id'])
         cls.backup = cls.client.get_resource("backups", backup['id'])['backup']
 
-    @decorators.idempotent_id("bdff1ae0-ad6c-11ea-b87c-00224d6b7bc1")
-    def test_backup_full(self):
+    def backup_full_test(self):
         # Restore from backup
         LOG.info(f'Creating a new instance using the backup '
                  f'{self.backup["id"]}')
@@ -66,18 +65,22 @@ class TestBackupBase(trove_base.BaseTroveTest):
         restore_instance = self.create_instance(
             name,
             datastore_version=self.backup['datastore']['version'],
-            backup_id=self.backup['id']
+            backup_id=self.backup['id'],
+            create_user=self.create_user
         )
         self.wait_for_instance_status(
             restore_instance['id'],
             timeout=CONF.database.database_restore_timeout)
 
+        if self.enable_root:
+            self.root_password = self.get_root_pass(restore_instance['id'])
+
         restore_instance = self.client.get_resource(
             "instances", restore_instance['id'])['instance']
         restore_instance_ip = self.get_instance_ip(restore_instance)
 
-        self.verify_data(restore_instance_ip, constants.DB_USER,
-                         constants.DB_PASS, constants.DB_NAME)
+        LOG.info(f"Verifying data on restored instance {restore_instance_ip}")
+        self.verify_data(restore_instance_ip)
 
         # Delete the new instance explicitly to avoid too many instances
         # during the test.
@@ -85,11 +88,11 @@ class TestBackupBase(trove_base.BaseTroveTest):
                                       expected_status="DELETED",
                                       need_delete=True)
 
-    @decorators.idempotent_id("f8f985c2-ae02-11ea-b87c-00224d6b7bc1")
-    def test_backup_incremental(self):
+    def backup_incremental_test(self):
         # Insert some data
-        self.insert_data_inc(self.instance_ip, constants.DB_USER,
-                             constants.DB_PASS, constants.DB_NAME)
+        LOG.info(f"Inserting data on {self.instance_ip} before creating "
+                 f"incremental backup")
+        self.insert_data_inc(self.instance_ip)
 
         # Create a second backup
         LOG.info(f"Creating an incremental backup based on "
@@ -108,18 +111,24 @@ class TestBackupBase(trove_base.BaseTroveTest):
         restore_instance = self.create_instance(
             name,
             datastore_version=backup_inc['datastore']['version'],
-            backup_id=backup_inc['id']
+            backup_id=backup_inc['id'],
+            create_user=self.create_user
         )
         self.wait_for_instance_status(
             restore_instance['id'],
             timeout=CONF.database.database_restore_timeout)
 
+        if self.enable_root:
+            self.root_password = self.get_root_pass(restore_instance['id'])
+
         restore_instance = self.client.get_resource(
             "instances", restore_instance['id'])['instance']
         restore_instance_ip = self.get_instance_ip(restore_instance)
 
-        self.verify_data_inc(restore_instance_ip, constants.DB_USER,
-                             constants.DB_PASS, constants.DB_NAME)
+        LOG.info(f"Verifying data on {restore_instance_ip}"
+                 f"({restore_instance['id']}) after restoring incremental "
+                 f"backup")
+        self.verify_data_inc(restore_instance_ip)
 
         # Delete the new instance explicitly to avoid too many instances
         # during the test.
