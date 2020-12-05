@@ -129,41 +129,6 @@ class TestInstanceBasicBase(trove_base.BaseTroveTest):
         self.assertNotEqual(value, cur_value)
         self.assertNotEqual(new_value, cur_value)
 
-    def update_access_test(self):
-        """Test update instance accessbility"""
-        if 'access' not in self.instance:
-            raise self.skipException("Access not supported in API.")
-
-        # Change instance to be private
-        LOG.info(f"Changing instance {self.instance_id} to be private")
-        body = {
-            "instance": {
-                "access": {
-                    "is_public": False,
-                }
-            }
-        }
-        self.client.put_resource(f'instances/{self.instance_id}', body)
-        self.wait_for_instance_status(self.instance_id, timeout=30)
-
-        instance = self.client.get_resource(
-            "instances", self.instance_id)['instance']
-        self.assertFalse(instance['access']['is_public'])
-        types = [addr['type'] for addr in instance['addresses']]
-        self.assertNotIn('public', types)
-
-        # Change back to public
-        LOG.info(f"Changing instance {self.instance_id} to be public")
-        body = {
-            "instance": {
-                "access": {
-                    "is_public": True,
-                }
-            }
-        }
-        self.client.put_resource(f'instances/{self.instance_id}', body)
-        self.wait_for_instance_status(self.instance_id, timeout=30)
-
 
 class TestInstanceBasicMySQLBase(TestInstanceBasicBase):
     def _access_db(self, ip, username=constants.DB_USER,
@@ -316,7 +281,3 @@ class TestInstanceBasicMySQLBase(TestInstanceBasicBase):
         create_values = {"max_connections": 555}
         update_values = {"max_connections": 666}
         self.configuration_test(create_values, update_values)
-
-    @decorators.idempotent_id("67e57c26-fcb3-11ea-a950-00224d6b7bc1")
-    def test_update_access(self):
-        self.update_access_test()

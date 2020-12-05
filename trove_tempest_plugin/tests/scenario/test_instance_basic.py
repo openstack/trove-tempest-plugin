@@ -51,7 +51,3 @@ class TestInstanceBasicPostgreSQL(base_basic.TestInstanceBasicBase):
         update_values = {"max_connections": 102}
         self.configuration_test(create_values, update_values,
                                 need_restart=True)
-
-    @decorators.idempotent_id("5718abf6-fcb4-11ea-a950-00224d6b7bc1")
-    def test_update_access(self):
-        self.update_access_test()

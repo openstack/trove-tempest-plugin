@@ -51,7 +51,7 @@
 - job:
     name: trove-tempest-plugin
     parent: devstack-tempest
-    timeout: 7800
+    timeout: 10800
     description: |
       This job is for testing on py3 which is Ussuri onwards.
     required-projects: &base_required_projects
@@ -98,7 +98,8 @@
         s-object: true
         s-proxy: true
         tempest: true
-      tempest_test_regex: ^trove_tempest_plugin\.tests.scenario\.test_instance_basic\.TestInstanceBasicMySQL\.test_database_access
+      tempest_test_regex: ^trove_tempest_plugin\.tests
+      tempest_test_blacklist: '{{ ansible_user_dir }}/{{ zuul.projects["opendev.org/openstack/trove-tempest-plugin"].src_dir }}/tempest_blacklist.txt'
 
 - job:
     name: trove-tempest-ipv6-only
