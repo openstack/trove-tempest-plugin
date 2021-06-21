@@ -361,6 +361,10 @@ class BaseTroveTest(test.BaseTestCase):
             elif "ERROR" not in expected_status and cur_status == "ERROR":
                 # If instance status goes to ERROR but is not expected, stop
                 # waiting
+
+                res = cls.admin_client.get_resource("instances", id)
+                LOG.info(f'Instance fault msg: {res["instance"].get("fault")}')
+
                 message = "Instance status is ERROR."
                 caller = test_utils.find_test_caller()
                 if caller:

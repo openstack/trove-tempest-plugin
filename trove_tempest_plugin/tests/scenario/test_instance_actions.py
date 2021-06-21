@@ -103,8 +103,9 @@ class TestInstanceActionsMySQL(InstanceActionsMySQLBase):
     datastore = 'mysql'
 
     @decorators.idempotent_id("be6dd514-27d6-11ea-a56a-98f2b3cc23a0")
-    @testtools.skipUnless(CONF.database.pre_upgrade_datastore_versions,
-                          'Datastore upgrade is disabled.')
+    @testtools.skipUnless(
+        'mysql' in CONF.database.pre_upgrade_datastore_versions,
+        'Datastore upgrade is disabled.')
     def test_instance_upgrade(self):
         self.instance_upgrade_test()
 
@@ -123,8 +124,9 @@ class TestInstanceActionsMariaDB(InstanceActionsMySQLBase):
     datastore = 'mariadb'
 
     @decorators.idempotent_id("f7a0fef6-f413-11ea-a950-00224d6b7bc1")
-    @testtools.skipUnless(CONF.database.pre_upgrade_datastore_versions,
-                          'Datastore upgrade is disabled.')
+    @testtools.skipUnless(
+        'mariadb' in CONF.database.pre_upgrade_datastore_versions,
+        'Datastore upgrade is disabled.')
     def test_instance_upgrade(self):
         self.instance_upgrade_test()
 
@@ -222,8 +224,9 @@ class TestInstanceActionsPostgreSQL(base_actions.TestInstanceActionsBase):
         return version.split(' ')[0]
 
     @decorators.idempotent_id("97f1e7ca-f415-11ea-a950-00224d6b7bc1")
-    @testtools.skipUnless(CONF.database.pre_upgrade_datastore_versions,
-                          'Datastore upgrade is disabled.')
+    @testtools.skipUnless(
+        'postgresql' in CONF.database.pre_upgrade_datastore_versions,
+        'Datastore upgrade is disabled.')
     def test_instance_upgrade(self):
         self.instance_upgrade_test()
 

@@ -51,11 +51,11 @@
 - job:
     name: trove-tempest-plugin
     parent: devstack-tempest
+    nodeset: trove-ubuntu-focal
     timeout: 10800
     description: |
       This job is for testing on py3 which is Ussuri onwards.
     required-projects: &base_required_projects
-      - openstack/python-troveclient
       - openstack/trove
       - openstack/trove-tempest-plugin
       - openstack/tempest
@@ -70,6 +70,10 @@
       devstack_localrc:
         TEMPEST_PLUGINS: /opt/stack/trove-tempest-plugin
         USE_PYTHON3: true
+        Q_AGENT: openvswitch
+        Q_PLUGIN: ml2
+        Q_ML2_TENANT_NETWORK_TYPE: vxlan
+        Q_ML2_PLUGIN_MECHANISM_DRIVERS: openvswitch
       devstack_local_conf:
         post-config:
           $TROVE_CONF:
@@ -79,7 +83,6 @@
         trove: https://opendev.org/openstack/trove.git
       devstack_services:
         etcd3: false
-        tls-proxy: false
         ceilometer-acentral: false
         ceilometer-acompute: false
         ceilometer-alarm-evaluator: false
@@ -98,6 +101,14 @@
         s-object: true
         s-proxy: true
         tempest: true
+        q-svc: true
+        q-agt: true
+        q-dhcp: true
+        q-l3: true
+        q-meta: true
+        q-ovn-metadata-agent: false
+        ovn-controller: false
+        ovn-northd: false
       tempest_test_regex: ^trove_tempest_plugin\.tests
       tempest_test_blacklist: '{{ ansible_user_dir }}/{{ zuul.projects["opendev.org/openstack/trove-tempest-plugin"].src_dir }}/tempest_blacklist.txt'
 
