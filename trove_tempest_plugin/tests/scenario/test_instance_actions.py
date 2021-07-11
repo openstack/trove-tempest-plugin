@@ -98,6 +98,16 @@ class InstanceActionsMySQLBase(base_actions.TestInstanceActionsBase):
             ret = db_client.mysql_execute(cmd)
             return ret.first()[0]
 
+    def get_config_value(self, ip, option, username=constants.DB_USER,
+                         password=constants.DB_PASS):
+        db_url = f'mysql+pymysql://{username}:{password}@{ip}:3306'
+        with utils.SQLClient(db_url) as db_client:
+            cmd = f"show variables where Variable_name in ('{option}');"
+            ret = db_client.mysql_execute(cmd)
+            rows = ret.fetchall()
+        self.assertEqual(1, len(rows))
+        return int(rows[0][1])
+
 
 class TestInstanceActionsMySQL(InstanceActionsMySQLBase):
     datastore = 'mysql'
@@ -117,7 +127,8 @@ class TestInstanceActionsMySQL(InstanceActionsMySQLBase):
     @testtools.skipUnless(CONF.database.rebuild_image_id,
                           'Image for rebuild not configured.')
     def test_rebuild(self):
-        self.rebuild_test()
+        config_values = {"max_connections": 555}
+        self.rebuild_test(config_values)
 
 
 class TestInstanceActionsMariaDB(InstanceActionsMySQLBase):
@@ -138,7 +149,8 @@ class TestInstanceActionsMariaDB(InstanceActionsMySQLBase):
     @testtools.skipUnless(CONF.database.rebuild_image_id,
                           'Image for rebuild not configured.')
     def test_rebuild(self):
-        self.rebuild_test()
+        config_values = {"max_connections": 555}
+        self.rebuild_test(config_values)
 
 
 class TestInstanceActionsPostgreSQL(base_actions.TestInstanceActionsBase):
@@ -223,6 +235,17 @@ class TestInstanceActionsPostgreSQL(base_actions.TestInstanceActionsBase):
 
         return version.split(' ')[0]
 
+    def get_config_value(self, ip, option):
+        db_url = (f'postgresql+psycopg2://root:{self.password}@'
+                  f'{ip}:5432/postgres')
+        with utils.SQLClient(db_url) as db_client:
+            cmd = f"SELECT setting FROM pg_settings WHERE name='{option}';"
+            ret = db_client.pgsql_execute(cmd)
+            rows = ret.fetchall()
+
+        self.assertEqual(1, len(rows))
+        return int(rows[0][0])
+
     @decorators.idempotent_id("97f1e7ca-f415-11ea-a950-00224d6b7bc1")
     @testtools.skipUnless(
         'postgresql' in CONF.database.pre_upgrade_datastore_versions,
@@ -238,4 +261,5 @@ class TestInstanceActionsPostgreSQL(base_actions.TestInstanceActionsBase):
     @testtools.skipUnless(CONF.database.rebuild_image_id,
                           'Image for rebuild not configured.')
     def test_rebuild(self):
-        self.rebuild_test()
+        config_values = {"max_connections": 101}
+        self.rebuild_test(config_values, config_need_restart=True)

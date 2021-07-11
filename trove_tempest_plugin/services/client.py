@@ -13,8 +13,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from urllib import parse as urlparse
+
 from oslo_serialization import jsonutils as json
-from six.moves.urllib import parse as urlparse
+import tenacity
 
 from tempest.lib.common import rest_client
 from tempest.lib import exceptions
@@ -50,6 +52,12 @@ class TroveClient(rest_client.RestClient):
 
         return rest_client.ResponseBody(resp, json.loads(body))
 
+    @tenacity.retry(
+        wait=tenacity.wait_fixed(5),
+        stop=tenacity.stop_after_attempt(2),
+        retry=tenacity.retry_if_exception_type(),
+        reraise=True
+    )
     def delete_resource(self, obj, id, ignore_notfound=False):
         try:
             resp, _ = self.delete('/{obj}/{id}'.format(obj=obj, id=id))

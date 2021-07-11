@@ -36,21 +36,14 @@ class TestInstanceBasicBase(trove_base.BaseTroveTest):
         value should be in type int.
         """
         # Create new configuration
-        config_name = 'test_config'
+        config_name = self.get_resource_name('config')
         key = list(create_values.keys())[0]
         value = list(create_values.values())[0]
-        create_config = {
-            "configuration": {
-                "datastore": {
-                    "type": self.datastore,
-                    "version": self.instance['datastore']['version']
-                },
-                "values": create_values,
-                "name": config_name
-            }
-        }
+
         LOG.info(f"Creating new configuration {config_name}")
-        config = self.client.create_resource('configurations', create_config)
+        config = self.create_config(
+            config_name, create_values, self.datastore,
+            self.instance['datastore']['version'])
         config_id = config['configuration']['id']
         self.addCleanup(self.client.delete_resource, 'configurations',
                         config_id, ignore_notfound=True)
@@ -61,15 +54,9 @@ class TestInstanceBasicBase(trove_base.BaseTroveTest):
         self.assertEqual(0, len(ret['instances']))
 
         # Attach the configuration to the existing instance
-        attach_config = {
-            "instance": {
-                "configuration": config_id
-            }
-        }
         LOG.info(f"Attaching config {config_id} to instance "
                  f"{self.instance_id}")
-        self.client.put_resource(f'instances/{self.instance_id}',
-                                 attach_config)
+        self.attach_config(self.instance_id, config_id)
 
         if need_restart:
             LOG.info(f"Restarting instance {self.instance_id}")
@@ -107,13 +94,7 @@ class TestInstanceBasicBase(trove_base.BaseTroveTest):
 
         # Detach the configuration from the instance
         LOG.info(f"Detaching from instance {self.instance_id}")
-        detach_config = {
-            "instance": {
-                "configuration": None
-            }
-        }
-        self.client.put_resource(f'instances/{self.instance_id}',
-                                 detach_config)
+        self.detach_config(self.instance_id)
 
         if need_restart:
             LOG.info(f"Restarting instance {self.instance_id}")

@@ -209,3 +209,15 @@ class TestReplicationBase(trove_base.BaseTroveTest):
         ret = self.client.get_resource('instances', self.instance_id)
         self.assertIsNone(ret['instance'].get('replicas'))
         self.assertIsNone(ret['instance'].get('replica_of'))
+
+        # Rebuild test for replication cluster, now replica1 is the primary
+        if CONF.database.rebuild_image_id:
+            LOG.info(f"Rebuilding primary {replica1_id}")
+            self.rebuild_instance(replica1_id, CONF.database.rebuild_image_id)
+            LOG.info(f"Verifying data after rebuild {replica1_id}")
+            self.verify_data_after_promote(replica1_ip)
+
+            LOG.info(f"Rebuilding replica {replica2_id}")
+            self.rebuild_instance(replica2_id, CONF.database.rebuild_image_id)
+            LOG.info(f"Verifying data after rebuild {replica2_id}")
+            self.verify_data_after_promote(replica2_ip)

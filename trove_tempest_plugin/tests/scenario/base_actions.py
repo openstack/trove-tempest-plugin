@@ -40,6 +40,9 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
     def get_db_version(self):
         pass
 
+    def get_config_value(self, ip, option, **kwargs):
+        pass
+
     @classmethod
     def resource_setup(cls):
         super(TestInstanceActionsBase, cls).resource_setup()
@@ -143,22 +146,43 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
         ret = self.client.get_resource('instances', self.instance_id)
         self.assertEqual(2, ret['instance']['volume']['size'])
 
-    def rebuild_test(self):
+    def rebuild_test(self, config_values, config_need_restart=False):
         LOG.info(f"Inserting data on {self.instance_ip} before rebuilding")
         self.insert_data_before_rebuild(self.instance_ip)
 
+        # Create configuration before rebuild
+        config_name = self.get_resource_name('config')
+        LOG.info(f"Creating new configuration {config_name} for rebuild")
+        config = self.create_config(
+            config_name, config_values, self.datastore,
+            self.instance['datastore']['version'])
+        config_id = config['configuration']['id']
+        self.addCleanup(self.client.delete_resource, 'configurations',
+                        config_id, ignore_notfound=True)
+        # Attach the configuration
+        LOG.info(f"Attaching config {config_id} to instance "
+                 f"{self.instance_id}")
+        self.attach_config(self.instance_id, config_id)
+        self.addCleanup(self.detach_config, self.instance_id)
+        if config_need_restart:
+            LOG.info(f"Restarting instance {self.instance_id}")
+            self.restart_instance(self.instance_id)
+        # Verify the config before rebuild
+        key = list(config_values.keys())[0]
+        value = list(config_values.values())[0]
+        LOG.info(f"Getting config value for {key} on {self.instance_ip}")
+        cur_value = self.get_config_value(self.instance_ip, key)
+        self.assertEqual(value, cur_value)
+
         LOG.info(f"Rebuilding instance {self.instance_id} with image "
                  f"{CONF.database.rebuild_image_id}")
-        rebuild_req = {
-            "rebuild": {
-                "image_id": CONF.database.rebuild_image_id
-            }
-        }
-        self.admin_client.create_resource(
-            f"mgmt/instances/{self.instance_id}/action",
-            rebuild_req, expected_status_code=202,
-            need_response=False)
-        self.wait_for_instance_status(self.instance_id)
+        self.rebuild_instance(self.instance_id, CONF.database.rebuild_image_id)
 
         LOG.info(f"Verifying data on {self.instance_ip} after rebuilding")
         self.verify_data_after_rebuild(self.instance_ip)
+
+        # Verify configuration before rebuild
+        LOG.info(f"Verifying config {key} on {self.instance_ip} after "
+                 f"rebuilding")
+        cur_value = self.get_config_value(self.instance_ip, key)
+        self.assertEqual(value, cur_value)

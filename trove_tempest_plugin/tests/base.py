@@ -521,3 +521,49 @@ class BaseTroveTest(test.BaseTestCase):
     def get_root_pass(cls, instance_id):
         resp = cls.client.create_resource(f"instances/{instance_id}/root", {})
         return resp['user']['password']
+
+    @classmethod
+    def rebuild_instance(cls, instance_id, image_id):
+        rebuild_req = {
+            "rebuild": {
+                "image_id": image_id
+            }
+        }
+        cls.admin_client.create_resource(
+            f"mgmt/instances/{instance_id}/action",
+            rebuild_req, expected_status_code=202,
+            need_response=False)
+        cls.wait_for_instance_status(instance_id)
+
+    @classmethod
+    def create_config(cls, name, values, datastore, datastore_version):
+        create_config = {
+            "configuration": {
+                "datastore": {
+                    "type": datastore,
+                    "version": datastore_version
+                },
+                "values": values,
+                "name": name
+            }
+        }
+        config = cls.client.create_resource('configurations', create_config)
+        return config
+
+    @classmethod
+    def attach_config(cls, instance_id, config_id):
+        attach_config = {
+            "instance": {
+                "configuration": config_id
+            }
+        }
+        cls.client.put_resource(f'instances/{instance_id}', attach_config)
+
+    @classmethod
+    def detach_config(cls, instance_id):
+        detach_config = {
+            "instance": {
+                "configuration": None
+            }
+        }
+        cls.client.put_resource(f'instances/{instance_id}', detach_config)
