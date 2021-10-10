@@ -12,19 +12,22 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import time
+
 from oslo_log import log as logging
 from oslo_service import loopingcall
 from oslo_utils import netutils
 from oslo_utils import uuidutils
-import tenacity
-
+from swiftclient import client as swift_client
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import exceptions
 from tempest import test
+import tenacity
 
 from trove_tempest_plugin.tests import constants
+from trove_tempest_plugin.tests import exceptions as trove_exc
 from trove_tempest_plugin.tests import utils
 
 CONF = config.CONF
@@ -59,6 +62,34 @@ class BaseTroveTest(test.BaseTestCase):
             )
 
     @classmethod
+    def get_swift_client(cls):
+        auth_version = "3.0"
+        auth_url = CONF.identity.uri_v3
+        user = cls.os_primary.credentials.username
+        key = cls.os_primary.credentials.password
+        tenant_name = cls.os_primary.credentials.project_name
+        region_name = cls.os_primary.region
+        os_options = {'tenant_name': tenant_name, 'region_name': region_name}
+
+        return swift_client.Connection(
+            auth_url, user, key, auth_version=auth_version,
+            os_options=os_options)
+
+    @classmethod
+    def get_swift_admin_client(cls):
+        auth_version = "3.0"
+        auth_url = CONF.identity.uri_v3
+        user = cls.os_admin.credentials.username
+        key = cls.os_admin.credentials.password
+        tenant_name = cls.os_admin.credentials.project_name
+        region_name = cls.os_admin.region
+        os_options = {'tenant_name': tenant_name, 'region_name': region_name}
+
+        return swift_client.Connection(
+            auth_url, user, key, auth_version=auth_version,
+            os_options=os_options)
+
+    @classmethod
     def setup_clients(cls):
         super(BaseTroveTest, cls).setup_clients()
 
@@ -66,6 +97,14 @@ class BaseTroveTest(test.BaseTestCase):
         cls.admin_client = cls.os_admin.database.TroveClient()
         cls.admin_server_client = cls.os_admin.servers_client
         cls.account_client = cls.os_primary.account_client
+        cls.container_client = cls.os_primary.container_client
+        cls.object_client = cls.os_primary.object_client
+        cls.admin_container_client = cls.os_admin.container_client
+        cls.admin_object_client = cls.os_admin.object_client
+        # Swift client is special, we want to re-use the log_generator func
+        # in python-troveclient.
+        cls.swift = cls.get_swift_client()
+        cls.swift_admin = cls.get_swift_admin_client()
 
     @classmethod
     def setup_credentials(cls):
@@ -247,6 +286,41 @@ class BaseTroveTest(test.BaseTestCase):
             pass
 
     @classmethod
+    def delete_swift_containers(cls, container_client, object_client,
+                                containers):
+        """Remove containers and all objects in them.
+
+        The containers should be visible from the container_client given.
+        Will not throw any error if the containers don't exist.
+        Will not check that object and container deletions succeed.
+        After delete all the objects from a container, it will wait 3
+        seconds before delete the container itself, in order for deployments
+        using HA proxy sync the deletion properly, otherwise, the container
+        might fail to be deleted because it's not empty.
+        """
+        if isinstance(containers, str):
+            containers = [containers]
+
+        for cont in containers:
+            try:
+                params = {'limit': 9999, 'format': 'json'}
+                _, objlist = container_client.list_container_objects(
+                    cont,
+                    params)
+                # delete every object in the container
+                for obj in objlist:
+                    test_utils.call_and_ignore_notfound_exc(
+                        object_client.delete_object, cont, obj['name'])
+
+                # sleep 3 seconds to sync the deletion of the objects
+                # in HA deployment
+                time.sleep(3)
+
+                container_client.delete_container(cont)
+            except exceptions.NotFound:
+                pass
+
+    @classmethod
     def create_instance(cls, name=None, datastore_version=None,
                         database=constants.DB_NAME, username=constants.DB_USER,
                         password=constants.DB_PASS, backup_id=None,
@@ -364,6 +438,32 @@ class BaseTroveTest(test.BaseTestCase):
 
                 res = cls.admin_client.get_resource("instances", id)
                 LOG.info(f'Instance fault msg: {res["instance"].get("fault")}')
+
+                # Show trove-guestagent log for debug purpose.
+                # Only admin user is able to publish and show the trove guest
+                # agent log. Make sure the container is deleted after fetching
+                # the log.
+                try:
+                    LOG.info(f"Publishing guest log for instance {id}")
+                    cls.publish_log(id, 'guest')
+                    LOG.info(f"Getting guest log content for instance {id}")
+                    log_gen = cls.log_generator(id, 'guest', lines=0)
+                    log_content = "".join([chunk for chunk in log_gen()])
+                    LOG.info(
+                        f"\n=============================================\n"
+                        f"Trove guest agent log for instance {id}\n"
+                        f"=============================================")
+                    LOG.info(log_content)
+                except Exception as err:
+                    LOG.warning(f"Failed to get guest log for instance {id}, "
+                                f"error: {str(err)}")
+                finally:
+                    # Remove the swift container of database logs.
+                    LOG.info(f"Deleting swift container "
+                             f"{CONF.database.database_log_container}")
+                    cls.delete_swift_containers(
+                        cls.admin_container_client, cls.admin_object_client,
+                        CONF.database.database_log_container)
 
                 message = "Instance status is ERROR."
                 caller = test_utils.find_test_caller()
@@ -567,3 +667,93 @@ class BaseTroveTest(test.BaseTestCase):
             }
         }
         cls.client.put_resource(f'instances/{instance_id}', detach_config)
+
+    @classmethod
+    def publish_log(cls, instance_id, name='guest'):
+        client = cls.admin_client if name == 'guest' else cls.client
+        req_body = {
+            'name': name,
+            'publish': 1
+        }
+        client.create_resource(f"instances/{instance_id}/log",
+                               req_body)
+
+    @classmethod
+    def get_log_info(cls, instance_id, name='guest'):
+        req_body = {
+            'name': name,
+        }
+        return cls.admin_client.create_resource(
+            f"instances/{instance_id}/log",
+            req_body)
+
+    @classmethod
+    def _get_container_info(cls, instance_id, log_name):
+        try:
+            log_info = cls.get_log_info(instance_id, log_name)['log']
+            container = log_info['container']
+            prefix = log_info['prefix']
+            metadata_file = log_info['metafile']
+            return container, prefix, metadata_file
+        except swift_client.ClientException as ex:
+            if ex.http_status == 404:
+                raise trove_exc.GuestLogNotFound()
+            raise trove_exc.TroveTempestException()
+
+    @classmethod
+    def log_generator(cls, instance_id, log_name, lines=50):
+        """Return generator to yield the last <lines> lines of guest log.
+
+        This method is copied from python-troveclient.
+        """
+        swift_cli = cls.swift_admin if log_name == 'guest' else cls.swift
+
+        def _log_generator(instance_id, log_name, lines):
+            try:
+                container, prefix, metadata_file = cls._get_container_info(
+                    instance_id, log_name)
+
+                head, body = swift_cli.get_container(container, prefix=prefix)
+                log_obj_to_display = []
+
+                if lines:
+                    total_lines = lines
+                    partial_results = False
+                    parts = sorted(body, key=lambda obj: obj['last_modified'],
+                                   reverse=True)
+
+                    for part in parts:
+                        obj_hdrs = swift_cli.head_object(
+                            container,
+                            part['name'])
+                        obj_lines = int(obj_hdrs['x-object-meta-lines'])
+                        log_obj_to_display.insert(0, part)
+                        if obj_lines >= lines:
+                            partial_results = True
+                            break
+                        lines -= obj_lines
+                    if not partial_results:
+                        lines = total_lines
+
+                    part = log_obj_to_display.pop(0)
+                    hdrs, log_obj = swift_cli.get_object(
+                        container,
+                        part['name'])
+                    log_by_lines = log_obj.decode().splitlines()
+                    yield "\n".join(log_by_lines[-1 * lines:]) + "\n"
+                else:
+                    # Show all the logs
+                    log_obj_to_display = sorted(
+                        body, key=lambda obj: obj['last_modified'])
+
+                for log_part in log_obj_to_display:
+                    headers, log_obj = swift_cli.get_object(
+                        container,
+                        log_part['name'])
+                    yield log_obj.decode()
+            except swift_client.ClientException as ex:
+                if ex.http_status == 404:
+                    raise trove_exc.GuestLogNotFound()
+                raise trove_exc.TroveTempestException()
+
+        return lambda: _log_generator(instance_id, log_name, lines)

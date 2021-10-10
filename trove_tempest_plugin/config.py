@@ -95,6 +95,12 @@ DatabaseGroup = [
         default="lvmdriver-1",
         help="The Cinder volume type used for creating database instance."
     ),
+    cfg.StrOpt(
+        'database_log_container',
+        default="database_logs",
+        help="The name of Swift container for the database instance log, "
+             "should be the same with the config in the cloud."
+    ),
     cfg.BoolOpt(
         'remove_swift_account',
         default=True,
