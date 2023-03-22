@@ -59,11 +59,18 @@
       - openstack/trove
       - openstack/trove-tempest-plugin
       - openstack/tempest
-    irrelevant-files:
+    irrelevant-files: &base_irrelevant_files
       - ^.*\.rst$
+      - ^api-ref/.*$
       - ^doc/.*$
       - ^etc/.*$
       - ^releasenotes/.*$
+      - ^test-requirements.txt$
+      - ^tox.ini$
+      - ^LICENSE$
+      - ^contrib/
+      - ^zuul\.d/
+      - ^\..+
     vars: &base_vars
       tox_envlist: all
       tempest_concurrency: 1
@@ -117,5 +124,6 @@
     parent: devstack-tempest-ipv6
     description: |
       Trove devstack tempest tests job for IPv6-only deployment
+    irrelevant-files: *base_irrelevant_files
     required-projects: *base_required_projects
     vars: *base_vars
