@@ -6,13 +6,13 @@
       - tempest-plugin-jobs
     check:
       jobs:
-        - trove-tempest-plugin:
+        - trove-tempest-mysql-5.7.29:
             voting: false
         - trove-tempest-ipv6-only:
-            voting: false
+           voting: false
     gate:
       jobs:
-        - trove-tempest-plugin:
+        - trove-tempest-mysql-5.7.29:
             voting: false
         - trove-tempest-ipv6-only:
             voting: false
@@ -47,6 +47,10 @@
       - stable/rocky
       - stable/stein
       - stable/train
+
+- job:
+    name: trove-tempest-mysql-5.7.29
+    parent: trove-tempest
 
 - job:
     name: trove-tempest-plugin
