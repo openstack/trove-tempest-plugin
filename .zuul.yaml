@@ -8,12 +8,12 @@
       jobs:
         - trove-tempest-mysql-5.7.29:
             voting: false
-        - trove-tempest-ipv6-only:
-           voting: false
     gate:
       jobs:
         - trove-tempest-mysql-5.7.29:
             voting: false
+    experimental:
+      jobs:
         - trove-tempest-ipv6-only:
             voting: false
 
