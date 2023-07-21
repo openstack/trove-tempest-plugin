@@ -54,6 +54,7 @@ class TestReplicationBase(trove_base.BaseTroveTest):
                         need_delete=True, expected_status='DELETED')
         self.wait_for_instance_status(
             replica1_id,
+            expected_op_status=["HEALTHY"],
             timeout=CONF.database.database_build_timeout * 2)
         replica1 = self.client.get_resource(
             "instances", replica1_id)['instance']
@@ -108,6 +109,7 @@ class TestReplicationBase(trove_base.BaseTroveTest):
                         need_delete=True, expected_status='DELETED')
         self.wait_for_instance_status(
             replica2_id,
+            expected_op_status=["HEALTHY"],
             timeout=CONF.database.database_build_timeout * 2)
         replica2 = self.client.get_resource(
             "instances", replica2_id)['instance']
@@ -144,9 +146,12 @@ class TestReplicationBase(trove_base.BaseTroveTest):
         self.client.create_resource(f"instances/{self.instance_id}/action",
                                     req_body, expected_status_code=202,
                                     need_response=False)
-        self.wait_for_instance_status(self.instance_id)
-        self.wait_for_instance_status(replica1_id)
-        self.wait_for_instance_status(replica2_id)
+        self.wait_for_instance_status(self.instance_id,
+                                      expected_op_status=["HEALTHY"])
+        self.wait_for_instance_status(replica1_id,
+                                      expected_op_status=["HEALTHY"])
+        self.wait_for_instance_status(replica2_id,
+                                      expected_op_status=["HEALTHY"])
 
         # Verify the volumes of all the replicas are also resized to 2G
         replica1 = self.client.get_resource('instances', replica1_id)
@@ -162,7 +167,8 @@ class TestReplicationBase(trove_base.BaseTroveTest):
         self.client.create_resource(f"instances/{replica1_id}/action",
                                     promote_primary, expected_status_code=202,
                                     need_response=False)
-        self.wait_for_instance_status(replica1_id)
+        self.wait_for_instance_status(replica1_id,
+                                      expected_op_status=["HEALTHY"])
 
         # Make sure to delete replicas first for clean up, in case failure
         # happens when replica1 is still the primary.
@@ -203,7 +209,8 @@ class TestReplicationBase(trove_base.BaseTroveTest):
         }
         self.client.put_resource(f'/instances/{self.instance_id}',
                                  detach_replica)
-        self.wait_for_instance_status(self.instance_id)
+        self.wait_for_instance_status(self.instance_id,
+                                      expected_op_status=["HEALTHY"])
 
         # Verify original primary
         ret = self.client.get_resource('instances', self.instance_id)

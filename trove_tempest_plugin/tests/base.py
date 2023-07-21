@@ -237,7 +237,8 @@ class BaseTroveTest(test.BaseTestCase):
 
         instance = cls.create_instance(create_user=cls.create_user)
         cls.instance_id = instance['id']
-        cls.wait_for_instance_status(cls.instance_id)
+        cls.wait_for_instance_status(cls.instance_id,
+                                     expected_op_status=["HEALTHY"])
         cls.instance = cls.client.get_resource(
             "instances", cls.instance_id)['instance']
         cls.instance_ip = cls.get_instance_ip(cls.instance)
@@ -412,11 +413,13 @@ class BaseTroveTest(test.BaseTestCase):
             {"restart": {}},
             expected_status_code=202,
             need_response=False)
-        cls.wait_for_instance_status(instance_id)
+        cls.wait_for_instance_status(instance_id,
+                                     expected_op_status=["HEALTHY"])
 
     @classmethod
     def wait_for_instance_status(cls, id,
-                                 expected_status=["HEALTHY", "ACTIVE"],
+                                 expected_status=["ACTIVE"],
+                                 expected_op_status=[],
                                  need_delete=False,
                                  timeout=CONF.database.database_build_timeout):
         def _wait():
@@ -431,7 +434,13 @@ class BaseTroveTest(test.BaseTestCase):
 
             if cur_status in expected_status:
                 LOG.info('Instance %s becomes %s', id, cur_status)
-                raise loopingcall.LoopingCallDone()
+                if expected_op_status:
+                    op_status = res["instance"]["operating_status"]
+                    if op_status in expected_op_status:
+                        raise loopingcall.LoopingCallDone()
+                else:
+                    raise loopingcall.LoopingCallDone()
+
             elif "ERROR" not in expected_status and cur_status == "ERROR":
                 # If instance status goes to ERROR but is not expected, stop
                 # waiting
@@ -474,6 +483,9 @@ class BaseTroveTest(test.BaseTestCase):
 
         if type(expected_status) != list:
             expected_status = [expected_status]
+
+        if type(expected_op_status) != list:
+            expected_op_status = [expected_op_status]
 
         if need_delete:
             # If resource already removed, return
@@ -633,7 +645,8 @@ class BaseTroveTest(test.BaseTestCase):
             f"mgmt/instances/{instance_id}/action",
             rebuild_req, expected_status_code=202,
             need_response=False)
-        cls.wait_for_instance_status(instance_id)
+        cls.wait_for_instance_status(instance_id,
+                                     expected_op_status=["HEALTHY"])
 
     @classmethod
     def create_config(cls, name, values, datastore, datastore_version):

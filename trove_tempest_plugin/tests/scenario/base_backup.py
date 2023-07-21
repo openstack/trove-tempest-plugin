@@ -70,6 +70,7 @@ class TestBackupBase(trove_base.BaseTroveTest):
         )
         self.wait_for_instance_status(
             restore_instance['id'],
+            expected_op_status=["HEALTHY"],
             timeout=CONF.database.database_restore_timeout)
 
         if self.enable_root:
@@ -116,6 +117,7 @@ class TestBackupBase(trove_base.BaseTroveTest):
         )
         self.wait_for_instance_status(
             restore_instance['id'],
+            expected_op_status=["HEALTHY"],
             timeout=CONF.database.database_restore_timeout)
 
         if self.enable_root:

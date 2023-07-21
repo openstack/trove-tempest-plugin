@@ -41,7 +41,9 @@ class TestInstanceUpdateAccessBase(trove_base.BaseTroveTest):
             }
         }
         self.client.put_resource(f'instances/{self.instance_id}', body)
-        self.wait_for_instance_status(self.instance_id, timeout=30)
+        self.wait_for_instance_status(self.instance_id,
+                                      expected_op_status=["HEALTHY"],
+                                      timeout=30)
 
         instance = self.client.get_resource(
             "instances", self.instance_id)['instance']
@@ -59,7 +61,9 @@ class TestInstanceUpdateAccessBase(trove_base.BaseTroveTest):
             }
         }
         self.client.put_resource(f'instances/{self.instance_id}', body)
-        self.wait_for_instance_status(self.instance_id, timeout=30)
+        self.wait_for_instance_status(self.instance_id,
+                                      expected_op_status=["HEALTHY"],
+                                      timeout=30)
 
     @decorators.idempotent_id("c907cc80-36b4-11eb-b177-00224d6b7bc1")
     def test_instance_update_access(self):

@@ -67,7 +67,8 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
         instance = self.create_instance(name=name,
                                         datastore_version=ds_version,
                                         create_user=self.create_user)
-        self.wait_for_instance_status(instance['id'])
+        self.wait_for_instance_status(instance['id'],
+                                      expected_op_status=["HEALTHY"])
         instance = self.client.get_resource(
             "instances", instance['id'])['instance']
         instance_ip = self.get_instance_ip(instance)
@@ -83,7 +84,8 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
                  f"{new_version}")
         body = {"instance": {"datastore_version": new_version}}
         self.client.patch_resource('instances', instance['id'], body)
-        self.wait_for_instance_status(instance['id'])
+        self.wait_for_instance_status(instance['id'],
+                                      expected_op_status=["HEALTHY"])
 
         LOG.info(f"Getting database version on {instance_ip}")
         actual = self.get_db_version(instance_ip)
@@ -110,7 +112,8 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
         self.client.create_resource(f"instances/{self.instance_id}/action",
                                     resize_flavor, expected_status_code=202,
                                     need_response=False)
-        self.wait_for_instance_status(self.instance_id)
+        self.wait_for_instance_status(self.instance_id,
+                                      expected_op_status=["HEALTHY"])
 
         # Verify Trove flavor
         ret = self.client.get_resource('instances', self.instance_id)
@@ -140,7 +143,8 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
         self.client.create_resource(f"instances/{self.instance_id}/action",
                                     resize_volume, expected_status_code=202,
                                     need_response=False)
-        self.wait_for_instance_status(self.instance_id)
+        self.wait_for_instance_status(self.instance_id,
+                                      expected_op_status=["HEALTHY"])
 
         # Verify Trove volume
         ret = self.client.get_resource('instances', self.instance_id)
