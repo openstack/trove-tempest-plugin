@@ -121,7 +121,7 @@
         ovn-controller: false
         ovn-northd: false
       tempest_test_regex: ^trove_tempest_plugin\.tests
-      tempest_test_blacklist: '{{ ansible_user_dir }}/{{ zuul.projects["opendev.org/openstack/trove-tempest-plugin"].src_dir }}/tempest_blacklist.txt'
+      tempest_test_exclude_list: '{{ ansible_user_dir }}/{{ zuul.projects["opendev.org/openstack/trove-tempest-plugin"].src_dir }}/tempest_exclude_list.txt'
 
 - job:
     name: trove-tempest-ipv6-only
