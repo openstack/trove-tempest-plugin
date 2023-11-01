@@ -99,6 +99,10 @@ class TestReplicationBase(trove_base.BaseTroveTest):
         new_db_names = [db['name'] for db in new_replica1_dbs]
         self.assertIn(db_name, new_db_names)
 
+        # In the zuul environment, the testing VM can not create the
+        # replica2 vm due to the lack of memory.
+        if not CONF.database.run_full_tests:
+            return
         # Create replica2
         LOG.info(f"Creating replica2 for instance {self.instance_id}")
         name = self.get_resource_name("replica-02")

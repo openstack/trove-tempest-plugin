@@ -112,4 +112,12 @@ DatabaseGroup = [
         'rebuild_image_id',
         help="The new guest image ID used for rebuilding database instance."
     ),
+    cfg.BoolOpt(
+        "run_full_tests",
+        default=False,
+        help="Whether to run full tests for some tests. In the replication"
+             "test scenario, Trove will create 3 VMs for testing, In some"
+             "testing environment such as zuul, This will"
+             "cause the test to failed due to the lack of memory."
+    )
 ]
