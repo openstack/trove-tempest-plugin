@@ -6,11 +6,11 @@
       - tempest-plugin-jobs
     check:
       jobs:
-        - trove-tempest-mysql-5.7.29:
+        - trove-tempest-ubuntu-base-mysql5.7:
             voting: false
     gate:
       jobs:
-        - trove-tempest-mysql-5.7.29:
+        - trove-tempest-ubuntu-base-mysql5.7:
             voting: false
     experimental:
       jobs:

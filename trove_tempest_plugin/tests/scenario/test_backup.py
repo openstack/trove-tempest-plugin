@@ -165,3 +165,7 @@ class TestBackupPostgreSQL(base_backup.TestBackupBase):
     @decorators.idempotent_id("ec387400-f412-11ea-a950-00224d6b7bc1")
     def test_backup_incremental(self):
         self.backup_incremental_test()
+
+
+class TestBackupMariaDB(TestBackupMySQL):
+    datastore = 'mariadb'

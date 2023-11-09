@@ -183,3 +183,7 @@ class TestReplicationPostgreSQL(base_replication.TestReplicationBase):
     @decorators.idempotent_id("2f37f064-f418-11ea-a950-00224d6b7bc1")
     def test_replication(self):
         self.replication_test()
+
+
+class TestReplicationMariaDB(TestReplicationMySQL):
+    datastore = 'mariadb'
