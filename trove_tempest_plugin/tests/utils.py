@@ -16,6 +16,7 @@ import time
 from oslo_log import log as logging
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import sqlalchemy
+from sqlalchemy import text
 from tempest.lib import exceptions
 
 LOG = logging.getLogger(__name__)
@@ -62,13 +63,11 @@ class SQLClient(object):
 
     def conn_execute(self, conn, cmds):
         if isinstance(cmds, str):
-            result = conn.execute(cmds)
-            # Returns a ResultProxy
-            # https://docs.sqlalchemy.org/en/13/core/connections.html#sqlalchemy.engine.ResultProxy
+            result = conn.execute(text(cmds))
             return result
 
         for cmd in cmds:
-            conn.execute(cmd)
+            conn.execute(text(cmd))
 
     def pgsql_execute(self, cmds, **kwargs):
         try:
