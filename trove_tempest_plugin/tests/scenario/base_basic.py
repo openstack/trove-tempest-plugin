@@ -256,6 +256,13 @@ class TestInstanceBasicMySQLBase(TestInstanceBasicBase):
         cur_db_names = [db['name'] for db in databases]
         self.assertIn(db1, cur_db_names)
         self.assertNotIn(db2, cur_db_names)
+        # test update_attributes interface
+        new_user_body = {"user": {"name": "new_user"}}
+        self.client.put_resource(
+            f'instances/{self.instance_id}/users/{user1}', new_user_body)
+        users = self.get_users(self.instance_id)
+        cur_user_names = [user['name'] for user in users]
+        self.assertIn("new_user", cur_user_names)
 
     @decorators.idempotent_id("ce8277b0-af7c-11ea-b87c-00224d6b7bc1")
     def test_configuration(self):
