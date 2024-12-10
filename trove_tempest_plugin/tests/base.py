@@ -280,7 +280,7 @@ class BaseTroveTest(test.BaseTestCase):
 
     @classmethod
     def delete_swift_account(cls):
-        LOG.info(f"Cleaning up Swift account")
+        LOG.info("Cleaning up Swift account")
         try:
             cls.account_client.delete('')
         except exceptions.NotFound:
@@ -481,10 +481,10 @@ class BaseTroveTest(test.BaseTestCase):
                                                             message=message)
                 raise exceptions.UnexpectedResponseCode(message)
 
-        if type(expected_status) != list:
+        if not isinstance(expected_status, list):
             expected_status = [expected_status]
 
-        if type(expected_op_status) != list:
+        if not isinstance(expected_op_status, list):
             expected_op_status = [expected_op_status]
 
         if need_delete:
@@ -602,7 +602,7 @@ class BaseTroveTest(test.BaseTestCase):
                                                             message=message)
                 raise exceptions.UnexpectedResponseCode(message)
 
-        if type(expected_status) != list:
+        if not isinstance(expected_status, list):
             expected_status = [expected_status]
 
         if need_delete:
