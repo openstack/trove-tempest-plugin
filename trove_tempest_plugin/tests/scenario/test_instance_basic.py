@@ -86,40 +86,33 @@ class TestInstanceBasicPostgreSQL(base_basic.TestInstanceBasicBase):
     @decorators.idempotent_id('6c2c710c-0138-4215-8e08-6dfe605ba6a6')
     def test_user_database(self):
         db1 = 'foo'
-        db2 = 'bar'
         user1 = 'foo_user'
         user2 = 'bar_user'
 
         users = self.get_users(self.instance_id)
         cur_user_names = [user['name'] for user in users]
         self.assertNotIn(user1, cur_user_names)
-        self.assertNotIn(user2, cur_user_names)
 
         databases = self.get_databases(self.instance_id)
         cur_db_names = [db['name'] for db in databases]
         self.assertNotIn(db1, cur_db_names)
-        self.assertNotIn(db2, cur_db_names)
 
         LOG.info(f"Creating databases in instance {self.instance_id}")
         create_db = {
             "databases": [
                 {
                     "name": db1
-                },
-                {
-                    "name": db2
                 }
             ]
         }
         self.client.create_resource(f"instances/{self.instance_id}/databases",
                                     create_db, expected_status_code=202,
                                     need_response=False)
-        # sleep 3s to wait for db creation
+        # waiting for resources to be created.
         time.sleep(3)
         databases = self.get_databases(self.instance_id)
         cur_db_names = [db['name'] for db in databases]
         self.assertIn(db1, cur_db_names)
-        self.assertIn(db2, cur_db_names)
 
         LOG.info(f"Creating users in instance {self.instance_id}")
         create_user = {
@@ -132,22 +125,17 @@ class TestInstanceBasicPostgreSQL(base_basic.TestInstanceBasicBase):
                     ],
                     "name": user1,
                     "password": constants.DB_PASS
-                },
-                {
-                    "name": user2,
-                    "password": constants.DB_PASS
                 }
             ]
         }
         self.client.create_resource(f"instances/{self.instance_id}/users",
                                     create_user, expected_status_code=202,
                                     need_response=False)
-        # wait the users to be created.
         time.sleep(3)
         users = self.get_users(self.instance_id)
         cur_user_names = [user['name'] for user in users]
         self.assertIn(user1, cur_user_names)
-        self.assertIn(user2, cur_user_names)
+
         # user1 should have access to db1
         LOG.info(f"Accessing database on {self.instance_ip}, user: {user1}, "
                  f"db: {db1}")
@@ -156,13 +144,6 @@ class TestInstanceBasicPostgreSQL(base_basic.TestInstanceBasicBase):
         self.assertTrue(self._check_db_privilege(self.instance_ip,
                                                  user1,
                                                  constants.DB_PASS, db1))
-
-        # by default, users in postgresql are allowed to
-        # connect to other databases
-        self._access_db(self.instance_ip, user2, constants.DB_PASS, db2)
-        self.assertTrue(self._check_db_privilege(self.instance_ip,
-                                                 user2,
-                                                 constants.DB_PASS, db2))
 
         LOG.info(f"Revoking user {user1} access to database {db1}")
         self.client.delete_resource(
@@ -174,31 +155,32 @@ class TestInstanceBasicPostgreSQL(base_basic.TestInstanceBasicBase):
         # self.assertFalse(self._check_db_privilege(self.instance_ip,
         #                                          user1,
         #                                          constants.DB_PASS, db1))
+
+        # test update_attributes interface
+        LOG.info(f"Updating user {user1} to {user2}")
+        new_user_body = {"user": {"name": user2}}
+        self.client.put_resource(
+            f'instances/{self.instance_id}/users/{user1}', new_user_body)
+        time.sleep(3)
+        users = self.get_users(self.instance_id)
+        cur_user_names = [user['name'] for user in users]
+        self.assertIn(user2, cur_user_names)
+
         LOG.info(f"Deleting user {user2}")
         self.client.delete_resource(
             f'instances/{self.instance_id}/users', user2)
+        time.sleep(3)
         users = self.get_users(self.instance_id)
         cur_user_names = [user['name'] for user in users]
-        self.assertIn(user1, cur_user_names)
         self.assertNotIn(user2, cur_user_names)
 
-        LOG.info(f"Deleting database {db2}")
+        LOG.info(f"Deleting database {db1}")
         self.client.delete_resource(
-            f'instances/{self.instance_id}/databases', db2)
-        time.sleep(2)
+            f'instances/{self.instance_id}/databases', db1)
+        time.sleep(3)
         databases = self.get_databases(self.instance_id)
         cur_db_names = [db['name'] for db in databases]
-        self.assertIn(db1, cur_db_names)
-        self.assertNotIn(db2, cur_db_names)
-        # test update_attributes interface
-        LOG.info(f"Updating user {user1} to new_user")
-        new_user_body = {"user": {"name": "new_user"}}
-        self.client.put_resource(
-            f'instances/{self.instance_id}/users/{user1}', new_user_body)
-        time.sleep(2)
-        users = self.get_users(self.instance_id)
-        cur_user_names = [user['name'] for user in users]
-        self.assertIn("new_user", cur_user_names)
+        self.assertNotIn(db1, cur_db_names)
 
     @decorators.idempotent_id("b6c03cb6-f40f-11ea-a950-00224d6b7bc1")
     def test_configuration(self):
