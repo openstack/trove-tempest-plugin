@@ -15,11 +15,14 @@
 import time
 
 from oslo_log import log as logging
+from oslo_service import loopingcall
 from tempest.lib import decorators
+from tempest.lib import exceptions
 
 from trove_tempest_plugin.tests import constants
 from trove_tempest_plugin.tests.scenario import base_basic
 from trove_tempest_plugin.tests import utils
+
 
 LOG = logging.getLogger(__name__)
 
@@ -108,11 +111,21 @@ class TestInstanceBasicPostgreSQL(base_basic.TestInstanceBasicBase):
         self.client.create_resource(f"instances/{self.instance_id}/databases",
                                     create_db, expected_status_code=202,
                                     need_response=False)
-        # waiting for resources to be created.
-        time.sleep(3)
-        databases = self.get_databases(self.instance_id)
-        cur_db_names = [db['name'] for db in databases]
-        self.assertIn(db1, cur_db_names)
+
+        def _wait_db():
+            try:
+                databases = self.get_databases(self.instance_id)
+                cur_db_names = [db['name'] for db in databases]
+                self.assertIn(db1, cur_db_names)
+                raise loopingcall.LoopingCallDone()
+            except AssertionError:
+                return
+        timer = loopingcall.FixedIntervalWithTimeoutLoopingCall(_wait_db)
+        try:
+            timer.start(interval=5, timeout=30, initial_delay=5).wait()
+        except loopingcall.LoopingCallTimeOut as e:
+            message = f"failed to create db: {db1} in 30 seconds"
+            raise exceptions.TimeoutException(message) from e
 
         LOG.info(f"Creating users in instance {self.instance_id}")
         create_user = {
