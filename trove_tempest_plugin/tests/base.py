@@ -550,7 +550,7 @@ class BaseTroveTest(test.BaseTestCase):
 
     @classmethod
     def create_backup(cls, instance_id, backup_name, incremental=False,
-                      parent_id=None, description=None):
+                      parent_id=None, description=None, storage_driver=None):
         body = {
             "backup": {
                 "name": backup_name,
@@ -558,6 +558,8 @@ class BaseTroveTest(test.BaseTestCase):
                 "incremental": 1 if incremental else 0,
             }
         }
+        if storage_driver:
+            body["backup"]["storage_driver"] = storage_driver
         if description:
             body['backup']['description'] = description
         if parent_id:
