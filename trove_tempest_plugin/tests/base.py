@@ -543,6 +543,22 @@ class BaseTroveTest(test.BaseTestCase):
         ret = self.client.list_resources(url)
         return ret['databases']
 
+    def wait_for_database_deletion(self, instance_id, database_name,
+                                   timeout=30):
+        def _wait():
+            databases = self.get_databases(instance_id)
+            db_names = [db['name'] for db in databases]
+            if database_name not in db_names:
+                raise loopingcall.LoopingCallDone()
+
+        timer = loopingcall.FixedIntervalWithTimeoutLoopingCall(_wait)
+        try:
+            timer.start(interval=5, timeout=timeout).wait()
+        except loopingcall.LoopingCallTimeOut:
+            message = (f"Database {database_name} was not deleted in "
+                       f"{timeout} seconds")
+            raise exceptions.TimeoutException(message)
+
     def get_users(self, instance_id):
         url = f'instances/{instance_id}/users'
         ret = self.client.list_resources(url)

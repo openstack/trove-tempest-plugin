@@ -252,6 +252,8 @@ class TestInstanceBasicMySQLBase(TestInstanceBasicBase):
         LOG.info(f"Deleting database {db2}")
         self.client.delete_resource(
             f'instances/{self.instance_id}/databases', db2)
+        # Wait for database deletion to complete
+        self.wait_for_database_deletion(self.instance_id, db2)
         databases = self.get_databases(self.instance_id)
         cur_db_names = [db['name'] for db in databases]
         self.assertIn(db1, cur_db_names)
