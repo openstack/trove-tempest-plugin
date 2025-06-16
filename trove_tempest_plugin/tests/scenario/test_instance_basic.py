@@ -190,7 +190,8 @@ class TestInstanceBasicPostgreSQL(base_basic.TestInstanceBasicBase):
         LOG.info(f"Deleting database {db1}")
         self.client.delete_resource(
             f'instances/{self.instance_id}/databases', db1)
-        time.sleep(3)
+        # Wait for database deletion to complete
+        self.wait_for_database_deletion(self.instance_id, db1)
         databases = self.get_databases(self.instance_id)
         cur_db_names = [db['name'] for db in databases]
         self.assertNotIn(db1, cur_db_names)
