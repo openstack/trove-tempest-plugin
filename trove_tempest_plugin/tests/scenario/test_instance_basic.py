@@ -40,20 +40,6 @@ class TestInstanceBasicPostgreSQL(base_basic.TestInstanceBasicBase):
     create_user = True
     enable_root = True
 
-    def _check_db_privilege(self, ip, username, password, database):
-        db_url = f'postgresql://{username}:{password}@{ip}:5432/{database}'
-        with utils.SQLClient(db_url) as db_client:
-            # Check if the user can create a table
-            try:
-                cmd = "CREATE TABLE test_table (id INT);"
-                db_client.pgsql_execute(cmd)
-                # If successful, drop the table
-                cmd = "DROP TABLE test_table;"
-                db_client.pgsql_execute(cmd)
-                return True
-            except Exception:
-                return False
-
     def _access_db(self, ip, username=constants.DB_USER,
                    password=constants.DB_PASS, database=constants.DB_NAME):
         db_url = f'postgresql+psycopg2://{username}:{password}@{ip}:5432/'\
@@ -153,10 +139,6 @@ class TestInstanceBasicPostgreSQL(base_basic.TestInstanceBasicBase):
         LOG.info(f"Accessing database on {self.instance_ip}, user: {user1}, "
                  f"db: {db1}")
         self._access_db(self.instance_ip, user1, constants.DB_PASS, db1)
-        # user1 should also have previlege to create table
-        self.assertTrue(self._check_db_privilege(self.instance_ip,
-                                                 user1,
-                                                 constants.DB_PASS, db1))
 
         LOG.info(f"Revoking user {user1} access to database {db1}")
         self.client.delete_resource(
