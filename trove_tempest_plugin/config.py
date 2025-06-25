@@ -70,12 +70,12 @@ DatabaseGroup = [
     ),
     cfg.StrOpt(
         'flavor_id',
-        default="d2",
+        default="d3",
         help="The Nova flavor ID used for creating database instance."
     ),
     cfg.StrOpt(
         'resize_flavor_id',
-        default="d3",
+        default="d4",
         help="The Nova flavor ID used for resizing database instance."
     ),
     cfg.StrOpt(

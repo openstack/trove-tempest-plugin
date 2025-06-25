@@ -11,6 +11,8 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import time
+
 from oslo_log import log as logging
 from tempest import config
 from tempest.lib import decorators
@@ -173,7 +175,8 @@ class TestInstanceBasicMySQLBase(TestInstanceBasicBase):
         self.client.create_resource(f"instances/{self.instance_id}/databases",
                                     create_db, expected_status_code=202,
                                     need_response=False)
-
+        # wait 3 seconds for resource to be created
+        time.sleep(3)
         databases = self.get_databases(self.instance_id)
         cur_db_names = [db['name'] for db in databases]
         self.assertIn(db1, cur_db_names)
@@ -200,7 +203,7 @@ class TestInstanceBasicMySQLBase(TestInstanceBasicBase):
         self.client.create_resource(f"instances/{self.instance_id}/users",
                                     create_user, expected_status_code=202,
                                     need_response=False)
-
+        time.sleep(3)
         users = self.get_users(self.instance_id)
         cur_user_names = [user['name'] for user in users]
         self.assertIn(user1, cur_user_names)
@@ -225,6 +228,7 @@ class TestInstanceBasicMySQLBase(TestInstanceBasicBase):
         self.client.put_resource(
             f'/instances/{self.instance_id}/users/{user2}/databases',
             grant_access)
+        time.sleep(3)
         user2_dbs = self.client.list_resources(
             f'instances/{self.instance_id}/users/{user2}/databases')
         user2_dbs = [db['name'] for db in user2_dbs['databases']]
@@ -244,6 +248,7 @@ class TestInstanceBasicMySQLBase(TestInstanceBasicBase):
         LOG.info(f"Deleting user {user2}")
         self.client.delete_resource(
             f'instances/{self.instance_id}/users', user2)
+        time.sleep(3)
         users = self.get_users(self.instance_id)
         cur_user_names = [user['name'] for user in users]
         self.assertIn(user1, cur_user_names)
@@ -262,6 +267,7 @@ class TestInstanceBasicMySQLBase(TestInstanceBasicBase):
         new_user_body = {"user": {"name": "new_user"}}
         self.client.put_resource(
             f'instances/{self.instance_id}/users/{user1}', new_user_body)
+        time.sleep(3)
         users = self.get_users(self.instance_id)
         cur_user_names = [user['name'] for user in users]
         self.assertIn("new_user", cur_user_names)

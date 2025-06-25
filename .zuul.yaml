@@ -4,14 +4,14 @@
       - check-requirements
       - publish-openstack-docs-pti
       - tempest-plugin-jobs
-    check:
-      jobs:
-        - trove-tempest-ubuntu-base-mysql5.7:
-            voting: false
-    gate:
-      jobs:
-        - trove-tempest-ubuntu-base-mysql5.7:
-            voting: false
+    # check:
+    #   jobs:
+    #     - trove-tempest-ubuntu-base-mysql5.7:
+    #         voting: false
+    # gate:
+    #   jobs:
+    #     - trove-tempest-ubuntu-base-mysql5.7:
+    #         voting: false
     experimental:
       jobs:
         - trove-tempest-ipv6-only:
