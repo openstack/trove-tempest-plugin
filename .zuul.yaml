@@ -33,7 +33,6 @@
       tox_envlist: all
       devstack_localrc:
         TEMPEST_PLUGINS: /opt/stack/trove-tempest-plugin
-        USE_PYTHON3: False
       devstack_plugins:
         trove: https://opendev.org/openstack/trove
       devstack_services:
@@ -80,7 +79,6 @@
       tempest_concurrency: 1
       devstack_localrc:
         TEMPEST_PLUGINS: /opt/stack/trove-tempest-plugin
-        USE_PYTHON3: true
         Q_AGENT: openvswitch
         Q_PLUGIN: ml2
         Q_ML2_TENANT_NETWORK_TYPE: vxlan
