@@ -653,6 +653,22 @@ class BaseTroveTest(test.BaseTestCase):
         return resp['user']['password']
 
     @classmethod
+    def disable_root_access(cls, instance_id):
+        cls.client.delete_resource(f"instances/{instance_id}", 'root',
+                                   expected_status_code=204)
+
+    @classmethod
+    def enable_root_access(cls, instance_id, password={}):
+        if password:
+            password = {"password": password}
+        cls.client.create_resource(f"instances/{instance_id}/root", password)
+
+    @classmethod
+    def is_root_enabled(cls, instance_id):
+        resp = cls.client.get_resource(f"instances/{instance_id}", 'root')
+        return resp['rootEnabled']
+
+    @classmethod
     def rebuild_instance(cls, instance_id, image_id):
         rebuild_req = {
             "rebuild": {
