@@ -112,6 +112,32 @@ class TestInstanceBasicBase(trove_base.BaseTroveTest):
         self.assertNotEqual(value, cur_value)
         self.assertNotEqual(new_value, cur_value)
 
+    @decorators.idempotent_id('bb262e9f-10c1-4271-8ad1-4b8b585e0ee1')
+    def test_root_disable(self):
+        # get the default root status
+        root_enabled = self.is_root_enabled(self.instance_id)
+        self.assertEqual(self.enable_root, root_enabled)
+        # enable the root
+        if self.enable_root:
+            password = self.get_root_pass(self.instance_id)
+            self.enable_root_access(self.instance_id, password)
+        else:
+            self.enable_root_access(self.instance_id)
+        root_enabled = self.is_root_enabled(self.instance_id)
+        self.assertTrue(root_enabled)
+        # disable the root
+        self.disable_root_access(self.instance_id)
+        root_enabled = self.is_root_enabled(self.instance_id)
+        self.assertFalse(root_enabled)
+        # enable again
+        if self.enable_root:
+            password = self.get_root_pass(self.instance_id)
+            self.enable_root_access(self.instance_id, password)
+        else:
+            self.enable_root_access(self.instance_id)
+        root_enabled = self.is_root_enabled(self.instance_id)
+        self.assertTrue(root_enabled)
+
 
 class TestInstanceBasicMySQLBase(TestInstanceBasicBase):
     def _access_db(self, ip, username=constants.DB_USER,

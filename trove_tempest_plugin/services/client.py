@@ -58,10 +58,11 @@ class TroveClient(rest_client.RestClient):
         retry=tenacity.retry_if_exception_type(),
         reraise=True
     )
-    def delete_resource(self, obj, id, ignore_notfound=False):
+    def delete_resource(self, obj, id, ignore_notfound=False,
+                        expected_status_code=202):
         try:
             resp, _ = self.delete('/{obj}/{id}'.format(obj=obj, id=id))
-            self.expected_success(202, resp.status)
+            self.expected_success(expected_status_code, resp.status)
             return resp
         except exceptions.NotFound:
             if ignore_notfound:
