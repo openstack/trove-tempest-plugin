@@ -75,7 +75,9 @@ class TestInstanceBasicPostgreSQL(base_basic.TestInstanceBasicBase):
     @decorators.idempotent_id('6c2c710c-0138-4215-8e08-6dfe605ba6a6')
     def test_user_database(self):
         db1 = 'foo'
+        db2 = 'bar'
         user1 = 'foo_user'
+        new_pass = 'new_password'
         user2 = 'bar_user'
 
         users = self.get_users(self.instance_id)
@@ -85,12 +87,16 @@ class TestInstanceBasicPostgreSQL(base_basic.TestInstanceBasicBase):
         databases = self.get_databases(self.instance_id)
         cur_db_names = [db['name'] for db in databases]
         self.assertNotIn(db1, cur_db_names)
+        self.assertNotIn(db2, cur_db_names)
 
         LOG.info(f"Creating databases in instance {self.instance_id}")
         create_db = {
             "databases": [
                 {
                     "name": db1
+                },
+                {
+                    "name": db2
                 }
             ]
         }
@@ -98,19 +104,21 @@ class TestInstanceBasicPostgreSQL(base_basic.TestInstanceBasicBase):
                                     create_db, expected_status_code=202,
                                     need_response=False)
 
-        def _wait_db():
+        def _wait_db_create():
             try:
                 databases = self.get_databases(self.instance_id)
                 cur_db_names = [db['name'] for db in databases]
                 self.assertIn(db1, cur_db_names)
+                self.assertIn(db2, cur_db_names)
                 raise loopingcall.LoopingCallDone()
             except AssertionError:
                 return
-        timer = loopingcall.FixedIntervalWithTimeoutLoopingCall(_wait_db)
+        timer = loopingcall.FixedIntervalWithTimeoutLoopingCall(
+            _wait_db_create)
         try:
             timer.start(interval=5, timeout=30, initial_delay=5).wait()
         except loopingcall.LoopingCallTimeOut as e:
-            message = f"failed to create db: {db1} in 30 seconds"
+            message = f"failed to create dbs: {db1}, {db2} in 30 seconds"
             raise exceptions.TimeoutException(message) from e
 
         LOG.info(f"Creating users in instance {self.instance_id}")
@@ -140,16 +148,73 @@ class TestInstanceBasicPostgreSQL(base_basic.TestInstanceBasicBase):
                  f"db: {db1}")
         self._access_db(self.instance_ip, user1, constants.DB_PASS, db1)
 
+        LOG.info(f"Updating password for user {user1}")
+        update_user_body = {"user": {"password": new_pass}}
+        self.client.put_resource(
+            f'instances/{self.instance_id}/users/{user1}', update_user_body)
+        time.sleep(3)
+
+        LOG.info("Accessing database with updated password, "
+                 f"user: {user1}, db: {db1}")
+        self._access_db(self.instance_ip, user1, new_pass, db1)
+
+        # user1 should not have access to db2 in Trove API mapping
+        # until granted
+        user1_dbs = self.client.list_resources(
+            f'instances/{self.instance_id}/users/{user1}/databases')
+        user1_dbs = [db['name'] for db in user1_dbs['databases']]
+        self.assertNotIn(db2, user1_dbs)
+
+        LOG.info(f"Granting user {user1} access to database {db2}")
+        grant_access = {
+            "databases": [
+                {
+                    "name": db2
+                }
+            ]
+        }
+        self.client.put_resource(
+            f'/instances/{self.instance_id}/users/{user1}/databases',
+            grant_access)
+        time.sleep(3)
+        user1_dbs = self.client.list_resources(
+            f'instances/{self.instance_id}/users/{user1}/databases')
+        user1_dbs = [db['name'] for db in user1_dbs['databases']]
+        self.assertIn(db2, user1_dbs)
+
+        LOG.info(f"Accessing database on {self.instance_ip}, user: {user1}, "
+                 f"db: {db2}")
+        self._access_db(self.instance_ip, user1, new_pass, db2)
+
         LOG.info(f"Revoking user {user1} access to database {db1}")
         self.client.delete_resource(
             f'instances/{self.instance_id}/users/{user1}/databases', db1)
-        # FIXME: user1 still have access to db1 because of the
-        # havior of public schema
-        # self.assertRaises(exceptions.TempestException, self._access_db,
-        #                   self.instance_ip, user1, constants.DB_PASS, db1)
-        # self.assertFalse(self._check_db_privilege(self.instance_ip,
-        #                                          user1,
-        #                                          constants.DB_PASS, db1))
+        self.assertRaises(exceptions.TempestException, self._access_db,
+                          self.instance_ip, user1, new_pass, db1)
+
+        LOG.info(f"Revoking user {user1} access to database {db2}")
+        self.client.delete_resource(
+            f'instances/{self.instance_id}/users/{user1}/databases', db2)
+        self.assertRaises(exceptions.TempestException, self._access_db,
+                          self.instance_ip, user1, new_pass, db2)
+
+        LOG.info(f"Granting user {user1} access to database {db2} again")
+        self.client.put_resource(
+            f'/instances/{self.instance_id}/users/{user1}/databases',
+            grant_access)
+        time.sleep(3)
+        LOG.info(f"Accessing database on {self.instance_ip}, user: {user1}, "
+                 f"db: {db2}")
+        self._access_db(self.instance_ip, user1, new_pass, db2)
+
+        LOG.info(f"Deleting database {db2}")
+        self.client.delete_resource(
+            f'instances/{self.instance_id}/databases', db2)
+        # Wait for database deletion to complete
+        self.wait_for_database_deletion(self.instance_id, db2)
+        databases = self.get_databases(self.instance_id)
+        cur_db_names = [db['name'] for db in databases]
+        self.assertNotIn(db2, cur_db_names)
 
         # test update_attributes interface
         LOG.info(f"Updating user {user1} to {user2}")
