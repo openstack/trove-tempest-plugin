@@ -18,36 +18,6 @@
             voting: false
 
 - job:
-    name: trove-tempest-plugin
-    parent: devstack-tempest
-    timeout: 7800
-    description: |
-      This job is for stable branch prior to Ussuri for testing
-      on py2.
-    required-projects:
-      - openstack/neutron
-      - openstack/trove
-      - openstack/trove-tempest-plugin
-      - openstack/tempest
-    vars:
-      tox_envlist: all
-      devstack_localrc:
-        TEMPEST_PLUGINS: /opt/stack/trove-tempest-plugin
-      devstack_plugins:
-        trove: https://opendev.org/openstack/trove
-      devstack_services:
-        tempest: true
-        tls-proxy: false
-      tempest_test_regex: ^trove_tempest_plugin\.tests.scenario\.test_instance_basic\.TestInstanceBasicMySQL\.test_database_access
-    branches:
-      - stable/ocata
-      - stable/pike
-      - stable/queens
-      - stable/rocky
-      - stable/stein
-      - stable/train
-
-- job:
     name: trove-tempest-mysql-5.7.29
     parent: trove-tempest
 
