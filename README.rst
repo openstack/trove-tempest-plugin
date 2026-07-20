@@ -22,6 +22,14 @@ Clone this repository, and call from the repo::
 
     $ python3 -m pip install -e .
 
+Requirements
+------------
+
+Install barbican tempest plugin::
+
+    $ git clone https://opendev.org/openstack/barbican-tempest-plugin
+    $ python3 -m pip install -e barbican-tempest-plugin
+
 Running the tests
 -----------------
 
