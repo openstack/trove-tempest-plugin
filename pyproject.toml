@@ -27,8 +27,10 @@ classifiers = [
 [project.urls]
 Repository = "https://opendev.org/openstack/trove-tempest-plugin"
 
+[tool.setuptools]
+packages = [
+    "trove_tempest_plugin"
+]
+
 [project.entry-points."tempest.test_plugins"]
 trove_tests = "trove_tempest_plugin.plugin:TroveTempestPlugin"
-
-[tool.setuptools.packages.find]
-include = ["trove_tempest_tests*"]
