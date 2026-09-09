@@ -525,6 +525,7 @@ class TestInstanceSSLBase(trove_base.BaseTroveTest):
         # because admins can't control barbican secrets, only
         # project members has access rights.
         LOG.info('Remove replica to test consumer cleanup')
+        self._log_instance_debug_info(replica_id)
         self.client.delete_resource('instances', replica_id)
         self.wait_for_instance_status(
             replica_id,

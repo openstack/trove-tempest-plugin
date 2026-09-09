@@ -1,0 +1,6 @@
+---
+features:
+  - |
+    Log Trove instance and associated Nova server details in JSON format
+    before deleting test instances to help diagnose test failures. Failures
+    to retrieve these details are logged without preventing instance cleanup.

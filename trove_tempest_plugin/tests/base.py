@@ -15,6 +15,7 @@
 import time
 
 from oslo_log import log as logging
+from oslo_serialization import jsonutils as json
 from oslo_service import loopingcall
 from oslo_utils import netutils
 from oslo_utils import uuidutils
@@ -226,6 +227,35 @@ class BaseTroveTest(test.BaseTestCase):
             router_id,
             subnet_id=subnet_id
         )
+
+    @classmethod
+    def _log_instance_debug_info(cls, instance_id):
+        try:
+            result = cls.admin_client.get_resource('instances', instance_id)
+            instance = result['instance']
+
+            LOG.info('Database instance %s details:\n%s', instance_id,
+                     json.dumps(instance, indent=2, sort_keys=True))
+        except Exception as err:
+            LOG.warning('Failed to get database instance %s details: %s',
+                        instance_id, err)
+            return
+
+        server_id = instance.get('server_id')
+
+        if not server_id:
+            LOG.warning('Nova server ID is not available for instance %s',
+                        instance_id)
+            return
+
+        try:
+            result = cls.admin_server_client.show_server(server_id)
+
+            LOG.info('Nova server %s details:\n%s', server_id,
+                     json.dumps(result['server'], indent=2, sort_keys=True))
+        except Exception as err:
+            LOG.warning('Failed to get Nova server %s details: %s',
+                        server_id, err)
 
     @classmethod
     def resource_setup(cls):
@@ -494,6 +524,8 @@ class BaseTroveTest(test.BaseTestCase):
             except exceptions.NotFound:
                 LOG.info('Instance %s not found', id)
                 return
+
+            cls._log_instance_debug_info(id)
 
             LOG.info(f"Deleting instance {id}")
             cls.admin_client.force_delete_instance(id)
