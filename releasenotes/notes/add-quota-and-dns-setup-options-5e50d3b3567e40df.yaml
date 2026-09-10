@@ -1,0 +1,7 @@
+---
+features:
+  - |
+    Add ``ensure_quotas`` and ``ensure_barbican_quotas`` options to ensure
+    minimum Trove and Barbican project quotas before creating test resources.
+    Add ``dns_nameservers`` to configure DNS servers for newly created test
+    subnets. Existing higher and unlimited quotas are preserved.

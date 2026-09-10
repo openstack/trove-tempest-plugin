@@ -13,6 +13,7 @@
 #    under the License.
 
 from oslo_config import cfg
+from oslo_config import types
 
 service_option = cfg.BoolOpt(
     'trove',
@@ -24,6 +25,8 @@ database_group = cfg.OptGroup(
     name='database',
     title='Database Service Options'
 )
+
+quota_dict_type = types.Dict(value_type=types.Integer(min=-1))
 
 DatabaseGroup = [
     cfg.StrOpt(
@@ -90,6 +93,13 @@ DatabaseGroup = [
         help=('The Neutron CIDR format subnet to use for database network '
               'creation.')
     ),
+    cfg.ListOpt(
+        'dns_nameservers',
+        item_type=types.IPAddress(),
+        default=[],
+        help='DNS server IP addresses for newly created test subnets. '
+             'Not applied when shared_network is configured.'
+    ),
     cfg.StrOpt(
         'volume_type',
         default="lvmdriver-1",
@@ -119,5 +129,21 @@ DatabaseGroup = [
              "test scenario, Trove will create 3 VMs for testing, In some"
              "testing environment such as zuul, This will"
              "cause the test to failed due to the lack of memory."
-    )
+    ),
+    cfg.Opt(
+        'ensure_quotas',
+        type=quota_dict_type,
+        default={},
+        help='Minimum Trove quotas for the test project. Values must be '
+             'integers greater than or equal to -1; -1 means unlimited. '
+             'Empty means no quota changes.'
+    ),
+    cfg.Opt(
+        'ensure_barbican_quotas',
+        type=quota_dict_type,
+        default={},
+        help='Minimum Barbican quotas for the test project. Values must be '
+             'integers greater than or equal to -1; -1 means unlimited. '
+             'Empty means no quota changes.'
+    ),
 ]
