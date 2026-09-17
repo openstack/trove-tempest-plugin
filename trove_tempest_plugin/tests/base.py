@@ -113,6 +113,102 @@ class BaseTroveTest(test.BaseTestCase):
         cls.set_network_resources()
         super(BaseTroveTest, cls).setup_credentials()
 
+    @staticmethod
+    def _get_quota_updates(current, required, option_name):
+        """Return quota increases, treating -1 as an unlimited limit."""
+        to_update = {}
+        for key, required_min in required.items():
+            if key not in current:
+                raise exceptions.InvalidConfiguration(
+                    '[database] %s contains an unknown quota resource: %s' %
+                    (option_name, key))
+
+            cur_val = current[key]
+            if cur_val == -1:
+                continue
+
+            if required_min == -1 or cur_val < required_min:
+                to_update[key] = required_min
+
+        return to_update
+
+    @classmethod
+    def ensure_quotas(cls):
+        """Raise Trove quotas to the configured minimum values.
+
+        Existing higher limits and unlimited quotas are left unchanged.
+        """
+        target_quotas = CONF.database.ensure_quotas
+        if not target_quotas:
+            return
+
+        project_id = cls.os_primary.credentials.project_id
+
+        quota_list = cls.admin_client.get_resource(
+            'mgmt/quotas', project_id)['quotas']
+
+        current = {q['resource']: q['limit'] for q in quota_list}
+        to_update = cls._get_quota_updates(
+            current, target_quotas, 'ensure_quotas')
+        if not to_update:
+            LOG.info(
+                'No Trove quota changes needed for project %s', project_id)
+            return
+
+        cls.admin_client.put_resource(
+            'mgmt/quotas/%s' % project_id,
+            {'quotas': to_update},
+            expected_status_code=200)
+
+        LOG.info(
+            'Trove quotas updated for project %s: %s', project_id, to_update)
+
+    @classmethod
+    def ensure_barbican_quotas(cls):
+        """Raise Barbican quotas to the configured minimum values.
+
+        Existing project overrides, higher limits, and unlimited quotas are
+        left unchanged.
+        """
+        target_quotas = CONF.database.ensure_barbican_quotas
+        if not target_quotas:
+            return
+
+        project_id = cls.os_primary.credentials.project_id
+        primary_client = cls.os_primary.secret_v1.QuotaClient()
+        admin_client = cls.os_admin.secret_v1.QuotaClient()
+
+        # Effective quotas are scoped to the requesting client's project.
+        current = primary_client.get_default_project_quota()['quotas']
+
+        to_update = cls._get_quota_updates(
+            current, target_quotas, 'ensure_barbican_quotas')
+        if not to_update:
+            LOG.info(
+                'No Barbican quota changes needed for project %s', project_id)
+            return
+
+        try:
+            configured = admin_client.get_project_quota(
+                project_id)['project_quotas']
+        except exceptions.NotFound:
+            configured = {}
+
+        # PUT replaces all settings. Preserve overrides and leave inherited
+        # limits unset so they continue to follow the service defaults.
+        project_quotas = {
+            key: value for key, value in configured.items()
+            if value is not None
+        }
+        project_quotas.update(to_update)
+
+        admin_client.create_project_quota(
+            project_id, project_quotas=project_quotas)
+
+        LOG.info(
+            'Barbican quotas updated for project %s: %s',
+            project_id, to_update)
+
     @classmethod
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(exceptions.Conflict),
@@ -193,6 +289,10 @@ class BaseTroveTest(test.BaseTestCase):
             'cidr': CONF.database.subnet_cidr,
             'ip_version': 4
         }
+
+        if CONF.database.dns_nameservers:
+            subnet_kwargs['dns_nameservers'] = CONF.database.dns_nameservers
+
         result = subnets_client.create_subnet(**subnet_kwargs)
         subnet_id = result['subnet']['id']
         LOG.info('Private subnet created: %s', result['subnet'])
@@ -260,6 +360,12 @@ class BaseTroveTest(test.BaseTestCase):
     @classmethod
     def resource_setup(cls):
         super(BaseTroveTest, cls).resource_setup()
+
+        if CONF.database.ensure_quotas:
+            cls.ensure_quotas()
+
+        if CONF.database.ensure_barbican_quotas:
+            cls.ensure_barbican_quotas()
 
         # Create network for database instance, use cls.private_network as the
         # network ID.
