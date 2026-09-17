@@ -53,6 +53,10 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
 
     def instance_upgrade_test(self):
         cur_version = self.instance['datastore']['version']
+        # The datastore version name is just a label, the actual database
+        # version is reported separately (and may be unset).
+        expected_version = (
+            self.instance['datastore'].get('version_number') or cur_version)
         cfg_versions = CONF.database.pre_upgrade_datastore_versions
         ds_version = cfg_versions.get(self.datastore)
         if not ds_version:
@@ -89,7 +93,7 @@ class TestInstanceActionsBase(trove_base.BaseTroveTest):
 
         LOG.info(f"Getting database version on {instance_ip}")
         actual = self.get_db_version(instance_ip)
-        self.assertEqual(new_version, actual)
+        self.assertEqual(expected_version, actual)
 
         LOG.info(f"Verifying data on {instance_ip} after upgrade")
         self.verify_data_upgrade(instance_ip)
